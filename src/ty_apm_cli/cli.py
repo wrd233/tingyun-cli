@@ -10,7 +10,7 @@ from .catalog import Catalog, CatalogNotFound
 from .config import load_config
 from .envelope import emit, failure, request_id, success
 from .http_client import TingyunClient
-from .snapshots import collect_snapshot
+from .snapshots import collect_snapshot, plan_snapshot
 
 ERROR_TYPES = {
     "ValidationError",
@@ -24,6 +24,8 @@ ERROR_TYPES = {
     "AmbiguousTarget",
     "InternalError",
 }
+DEFAULT_PAGE_NUMBER = 1
+DEFAULT_PAGE_SIZE = 50
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -141,17 +143,23 @@ def _snapshot_cmd(cfg: Any, catalog: Catalog, args: List[str]) -> Dict[str, Any]
     if not profile:
         return failure("snapshot.collect", "ValidationError", "--profile is required", meta=_meta(catalog), retryable=False)
     try:
+        common = {
+            "profile": profile,
+            "catalog": catalog,
+            "application_id": opts.get("application-id"),
+            "since": opts.get("since", "60m"),
+            "from_time": opts.get("from"),
+            "to_time": opts.get("to"),
+            "sample_limit": int(opts.get("sample-limit", 20)),
+            "page_limit": int(opts.get("page-limit", 3)),
+        }
+        if opts.get("plan-only") == "true":
+            data = plan_snapshot(**common)
+            return success("snapshot.collect", data, meta=_meta(catalog))
         data = collect_snapshot(
-            profile=profile,
-            catalog=catalog,
             config=cfg,
             run_id=opts.get("run-id"),
-            application_id=opts.get("application-id"),
-            since=opts.get("since", "60m"),
-            from_time=opts.get("from"),
-            to_time=opts.get("to"),
-            sample_limit=int(opts.get("sample-limit", 20)),
-            page_limit=int(opts.get("page-limit", 3)),
+            **common,
         )
         meta = {**_meta(catalog), "run_id": data["run_id"]}
         if data.get("coverage", {}).get("failures"):
@@ -254,8 +262,8 @@ def _json_value(value: str) -> Any:
 
 def _resolver_entry(catalog: Catalog) -> Optional[Dict[str, Any]]:
     preferred = [
-        "application.3_1_1.application_app_list.2",
         "application.3_1_1.application_app_list",
+        "application.3_1_1.application_app_list.2",
         "application.3_2_2.application_app_select",
     ]
     for catalog_id in preferred:
@@ -284,12 +292,14 @@ def _required_defaults(entry: Dict[str, Any]) -> Dict[str, Any]:
             params[name] = 60
         elif "lang" in lower:
             params[name] = "zh_CN"
-        elif lower.endswith("id") or lower in {"page", "pagenum", "pageindex"}:
-            params[name] = 1
+        elif lower in {"page", "pagenum", "pageindex"}:
+            params[name] = DEFAULT_PAGE_NUMBER
         elif lower == "pagesize":
-            params[name] = 50
+            params[name] = DEFAULT_PAGE_SIZE
+        elif lower.endswith("id"):
+            continue
         else:
-            params[name] = ""
+            continue
     return params
 
 

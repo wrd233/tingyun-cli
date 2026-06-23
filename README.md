@@ -39,8 +39,10 @@ ty-apm api call application.3_1_1.application_app_list --param timePeriod=60
 ty-apm resolve application --name "my-app"
 
 ty-apm snapshot collect --profile catalog-smoke --run-id smoke_001
+ty-apm snapshot collect --profile catalog-smoke --plan-only
 ty-apm snapshot collect --profile inventory --run-id inventory_001
 ty-apm snapshot collect --profile health-rules --run-id health_rules_001
+ty-apm snapshot collect --profile application-context --application-id 123 --since 60m --plan-only
 ty-apm snapshot collect --profile application-context --application-id 123 --since 60m --run-id app_123_001
 ```
 
@@ -51,6 +53,8 @@ Failure envelopes are still JSON on stdout and return a non-zero exit code. Ther
 Only snapshots persist evidence by default under `artifacts/runs/<run_id>/`. Live artifacts can contain sensitive business evidence even after secret redaction. Do not commit, sync, or paste them by default.
 
 Ordinary `api call` is lightweight by default: it returns the raw upstream response inside the JSON envelope and does not create a run directory.
+
+Use `--plan-only` before live snapshot runs to preview sections, catalog IDs, parameter sources, skipped steps, and safety blocks without requesting a token, calling Tingyun, or writing run artifacts.
 
 ## Tests
 

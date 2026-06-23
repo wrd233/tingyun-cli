@@ -2,6 +2,8 @@
 
 Ordinary API calls do not create run directories by default. They return one JSON envelope to stdout.
 
+Snapshot `--plan-only` also does not create run directories. It returns a JSON envelope with the planned calls and parameter sources.
+
 Snapshot commands create evidence packages under:
 
 ```text
