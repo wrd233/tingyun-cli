@@ -4,53 +4,51 @@ import re
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+SECRET_KEYS = {
+    "api_key",
+    "apikey",
+    "secret_key",
+    "secretkey",
+    "access_token",
+    "token",
+    "authorization",
+    "auth",
+    "password",
+    "credential",
+}
 
-SENSITIVE_KEY_RE = re.compile(
-    r"^(authorization|access[_-]?token|token|secret|secret[_-]?key|api[_-]?key|auth|password)$",
-    re.IGNORECASE,
-)
-
-
-def mask(value: Any) -> str:
-    text = "" if value is None else str(value)
-    if len(text) <= 8:
-        return "***"
-    return f"{text[:4]}***{text[-4:]}"
-
-
-def is_sensitive_key(key: str) -> bool:
-    return bool(SENSITIVE_KEY_RE.search(key))
+BEARER_RE = re.compile(r"Bearer\s+[A-Za-z0-9._~+/=-]+", re.IGNORECASE)
 
 
-def should_redact_value(key: str, value: Any) -> bool:
-    if not is_sensitive_key(key):
-        return False
-    if key.lower() == "auth" and not isinstance(value, str):
-        return False
-    return True
+def _sensitive_key(key: str) -> bool:
+    lower = key.lower().replace("-", "_")
+    return lower in SECRET_KEYS or "secret" in lower or "token" in lower or lower == "auth"
 
 
 def redact(value: Any) -> Any:
     if isinstance(value, dict):
-        result = {}
-        for key, item in value.items():
-            if should_redact_value(str(key), item):
-                result[key] = mask(item)
-            else:
-                result[key] = redact(item)
-        return result
+        return {key: _redact_item(str(key), item) for key, item in value.items()}
     if isinstance(value, list):
         return [redact(item) for item in value]
     if isinstance(value, tuple):
         return tuple(redact(item) for item in value)
+    if isinstance(value, str):
+        return BEARER_RE.sub("Bearer ***REDACTED***", value)
     return value
+
+
+def _redact_item(key: str, value: Any) -> Any:
+    if not _sensitive_key(key):
+        return redact(value)
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    return "***REDACTED***"
 
 
 def redact_url(url: str) -> str:
     parts = urlsplit(url)
-    if not parts.query:
-        return url
-    safe_query = []
-    for key, value in parse_qsl(parts.query, keep_blank_values=True):
-        safe_query.append((key, mask(value) if is_sensitive_key(key) else value))
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(safe_query), parts.fragment))
+    query = urlencode(
+        [(key, "***REDACTED***" if _sensitive_key(key) else value) for key, value in parse_qsl(parts.query)],
+        doseq=True,
+    )
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, query, parts.fragment))

@@ -1,10 +1,5 @@
 {
-  "base_url": "https://tingyun.example.com",
-  "api_key": "put-api-key-in-config.local.json-or-env",
-  "secret_key": "put-secret-key-in-config.local.json-or-env",
-  "output_dir": "./artifacts",
-  "catalog_path": "./catalog/tingyun-apm-api.catalog.json",
-  "token_cache": true,
-  "timeout_seconds": 30
+  "base_url": "https://tingyun.example.invalid",
+  "api_key": "example-api-key",
+  "secret_key": "example-secret-key"
 }
-

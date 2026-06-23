@@ -1,152 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.local/ty-apm-cli/catalog.schema.json",
-  "title": "Tingyun APM API Catalog",
   "type": "object",
-  "required": ["catalog_version", "source", "generated_at", "endpoints"],
-  "additionalProperties": false,
+  "required": ["schema_version", "catalog_version", "endpoints"],
   "properties": {
-    "catalog_version": { "type": "string" },
-    "source": {
-      "type": "object",
-      "required": ["source_pdf", "product_version", "manual_version"],
-      "additionalProperties": true,
-      "properties": {
-        "source_pdf": { "type": "string" },
-        "product_version": { "type": "string" },
-        "manual_version": { "type": "string" },
-        "release_date": { "type": "string" }
-      }
-    },
-    "generated_at": { "type": "string" },
-    "stats": { "type": "object", "additionalProperties": true },
+    "schema_version": {"const": "ty-apm.catalog.v1"},
+    "catalog_version": {"type": "string"},
     "endpoints": {
       "type": "array",
-      "items": { "$ref": "#/$defs/endpoint" }
-    }
-  },
-  "$defs": {
-    "endpoint": {
-      "type": "object",
-      "required": [
-        "id",
-        "title",
-        "domain",
-        "capability",
-        "method",
-        "path",
-        "description",
-        "safety",
-        "execution_supported",
-        "request",
-        "response",
-        "examples",
-        "doc",
-        "confidence",
-        "uncertainties",
-        "test",
-        "hints"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
-        "title": { "type": "string" },
-        "domain": { "type": "string" },
-        "capability": { "type": "string" },
-        "method": { "type": "string", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"] },
-        "path": { "type": "string", "pattern": "^/" },
-        "description": { "type": "string" },
-        "safety": { "type": "string", "enum": ["read", "guarded", "write", "unknown"] },
-        "execution_supported": { "type": "boolean" },
-        "request": { "$ref": "#/$defs/io_schema" },
-        "response": { "$ref": "#/$defs/io_schema" },
-        "examples": {
-          "type": "object",
-          "required": ["request", "response"],
-          "additionalProperties": true,
-          "properties": {
-            "request": { "type": "array", "items": { "$ref": "#/$defs/example" } },
-            "response": { "type": "array", "items": { "$ref": "#/$defs/example" } }
-          }
-        },
-        "doc": {
-          "type": "object",
-          "required": ["source_pdf", "manual_version", "product_version", "section", "page", "text_line_range", "evidence"],
-          "additionalProperties": true,
-          "properties": {
-            "source_pdf": { "type": "string" },
-            "manual_version": { "type": "string" },
-            "product_version": { "type": "string" },
-            "section": { "type": "string" },
-            "page": { "type": "integer" },
-            "page_end": { "type": "integer" },
-            "text_line_range": {
-              "type": "array",
-              "prefixItems": [{ "type": "integer" }, { "type": "integer" }],
-              "minItems": 2,
-              "maxItems": 2
-            },
-            "evidence": { "type": "array", "items": { "type": "string" } }
-          }
-        },
-        "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
-        "uncertainties": { "type": "array", "items": { "type": "string" } },
-        "test": {
-          "type": "object",
-          "required": ["priority", "reasons", "status"],
-          "additionalProperties": true,
-          "properties": {
-            "priority": { "type": "string", "enum": ["high", "medium", "low"] },
-            "reasons": { "type": "array", "items": { "type": "string" } },
-            "status": { "type": "string" }
-          }
-        },
-        "hints": {
-          "type": "object",
-          "required": ["related_catalog_ids", "requires_ids", "common_next"],
-          "additionalProperties": true,
-          "properties": {
-            "related_catalog_ids": { "type": "array", "items": { "type": "string" } },
-            "requires_ids": { "type": "array", "items": { "type": "string" } },
-            "common_next": { "type": "array", "items": { "type": "string" } }
-          }
+      "items": {
+        "type": "object",
+        "required": ["id", "domain", "title", "method", "path", "safety", "execution_supported", "request", "response", "evidence", "confidence"],
+        "properties": {
+          "id": {"type": "string"},
+          "domain": {"type": "string"},
+          "title": {"type": "string"},
+          "method": {"enum": ["GET", "POST", "PUT", "DELETE", "UNKNOWN"]},
+          "path": {"type": "string"},
+          "safety": {"enum": ["read", "write", "guarded", "unknown"]},
+          "execution_supported": {"type": "boolean"}
         }
-      }
-    },
-    "io_schema": {
-      "type": "object",
-      "required": ["content_type", "params", "schema", "raw"],
-      "additionalProperties": true,
-      "properties": {
-        "content_type": { "type": "string" },
-        "params": { "type": "array", "items": { "$ref": "#/$defs/field" } },
-        "fields": { "type": "array", "items": { "$ref": "#/$defs/field" } },
-        "schema": { "type": "object", "additionalProperties": true },
-        "raw": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "field": {
-      "type": "object",
-      "required": ["name", "type", "required", "description", "raw"],
-      "additionalProperties": true,
-      "properties": {
-        "name": { "type": "string" },
-        "type": { "type": "string" },
-        "required": { "type": "boolean" },
-        "description": { "type": "string" },
-        "raw": { "type": "string" }
-      }
-    },
-    "example": {
-      "type": "object",
-      "required": ["format", "value"],
-      "additionalProperties": true,
-      "properties": {
-        "format": { "type": "string" },
-        "value": { "type": "string" },
-        "truncated": { "type": "boolean" }
       }
     }
   }
 }
-

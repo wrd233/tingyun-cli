@@ -6,7 +6,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -15,23 +14,22 @@ class AppConfig:
     base_url: str = ""
     api_key: str = ""
     secret_key: str = ""
-    output_dir: Path = Path("./artifacts")
+    artifacts_dir: Path = PROJECT_ROOT / "artifacts"
     catalog_path: Path = PROJECT_ROOT / "catalog" / "tingyun-apm-api.catalog.json"
-    run_id: str = ""
+    timeout_seconds: float = 10.0
     token_cache: bool = True
-    timeout_seconds: float = 30.0
 
 
 ENV_MAP = {
     "base_url": "TY_APM_BASE_URL",
     "api_key": "TY_APM_API_KEY",
     "secret_key": "TY_APM_SECRET_KEY",
-    "output_dir": "TY_APM_OUTPUT_DIR",
+    "artifacts_dir": "TY_APM_ARTIFACTS_DIR",
     "catalog_path": "TY_APM_CATALOG_PATH",
 }
 
 
-def _read_local_config(path: Path) -> Dict[str, Any]:
+def _read_config(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
     with path.open("r", encoding="utf-8") as fh:
@@ -50,19 +48,14 @@ def load_config(
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
     secret_key: Optional[str] = None,
-    output_dir: Optional[str] = None,
+    artifacts_dir: Optional[str] = None,
     catalog_path: Optional[str] = None,
-    run_id: Optional[str] = None,
+    timeout_seconds: Optional[float] = None,
     no_token_cache: bool = False,
     config_path: Optional[str] = None,
 ) -> AppConfig:
-    config_file = Path(config_path) if config_path else Path("config.local.json")
-    local = _read_local_config(config_file)
-    data: Dict[str, Any] = {}
-
-    for field in AppConfig.__dataclass_fields__:
-        if field in local:
-            data[field] = local[field]
+    local_path = Path(config_path) if config_path else Path("config.local.json")
+    data: Dict[str, Any] = _read_config(local_path)
 
     for field, env_name in ENV_MAP.items():
         value = os.getenv(env_name)
@@ -73,25 +66,22 @@ def load_config(
         "base_url": base_url,
         "api_key": api_key,
         "secret_key": secret_key,
-        "output_dir": output_dir,
+        "artifacts_dir": artifacts_dir,
         "catalog_path": catalog_path,
-        "run_id": run_id,
+        "timeout_seconds": timeout_seconds,
     }
     for field, value in cli_values.items():
         if value not in (None, ""):
             data[field] = value
 
     cfg = AppConfig()
-    if data:
-        cfg = replace(
-            cfg,
-            **{
-                key: _path(value) if key in {"output_dir", "catalog_path"} else value
-                for key, value in data.items()
-                if key in AppConfig.__dataclass_fields__
-            },
-        )
+    clean = {
+        key: _path(value) if key in {"artifacts_dir", "catalog_path"} else value
+        for key, value in data.items()
+        if key in AppConfig.__dataclass_fields__
+    }
+    if clean:
+        cfg = replace(cfg, **clean)
     if no_token_cache:
         cfg = replace(cfg, token_cache=False)
     return cfg
-

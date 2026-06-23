@@ -1,29 +1,11 @@
 # Testing
 
-Run:
+Default tests are offline/mock only:
 
 ```bash
-uv run pytest
+PYTHONPATH=src python3 -m pytest -q
 ```
 
-Offline tests cover:
+They cover catalog safety, auth signing, redaction, JSON envelopes, blocked calls, read-call mocks, upstream errors, timeouts, snapshot package structure, and JSONL metadata.
 
-- Catalog JSON Schema validation
-- Unique catalog ids
-- Safety consistency
-- Coverage report presence
-- Safety audit
-- JSON envelope shape
-- Redaction
-
-Mock tests cover:
-
-- Token signature calculation
-- Token fetch and cache
-- Authorization header use
-- Read API call through `httpx.MockTransport`
-- Request/raw response/envelope/calls log artifact creation
-- Non-read refusal before HTTP execution
-
-Live smoke tests are intentionally deferred. Do not add tests that call a real Tingyun host from this development machine.
-
+Do not put real Tingyun calls in pytest or CI.

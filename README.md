@@ -1,85 +1,57 @@
 # ty-apm-cli
 
-Agent-first CLI for Tingyun APM official APIs. The first version is built from the provided PDF API manual and is designed for Codex / Claude Code style automation: stable JSON stdout, traceable catalog evidence, strict read-only execution, redacted secrets, and archived run artifacts.
+`ty-apm-cli` is a Tingyun APM Agent-safe read-only API execution layer.
 
-## What Is Included
+It is the hand, not the brain: it executes catalog-approved read calls, returns structured JSON evidence, and writes bounded snapshot artifacts. It does not diagnose, recommend, generate reports, modify Tingyun state, manage credentials, run a server, or inspect hosts.
 
-- Structured catalog generated from `/Users/wangrundong/Downloads/基调听云应用与微服务API说明.pdf`
-- 275 catalog entries: 274 PDF endpoint candidates plus the token endpoint
-- Read-only raw caller for `safety=read`
-- Hard refusal for `guarded`, `write`, and `unknown`
-- `api_key + secret_key + timestamp` MD5 token flow
-- Token cache, token clear, redaction, and artifact archival
-- Typed commands for auth, catalog, business systems, applications, transactions, service interfaces, background tasks, components, errors, traces, config, and health rules
-- Offline and mock tests only; no live smoke test is run in this repo
-
-## Setup
+## Install
 
 ```bash
-uv sync
-uv run ty-apm catalog stats
+python3 -m pip install -e .
 ```
 
-Use environment variables or `config.local.json` for real credentials. `config.local.json` is ignored by git.
+Configure with environment variables or a gitignored `config.local.json`:
 
 ```bash
-export TY_APM_BASE_URL="https://your-tingyun-host"
+export TY_APM_BASE_URL="https://tingyun.example"
 export TY_APM_API_KEY="..."
 export TY_APM_SECRET_KEY="..."
 ```
 
-Configuration precedence:
+## Commands
 
-```text
-CLI options > environment variables > config.local.json > defaults
-```
-
-## Core Commands
+All commands write exactly one JSON envelope to stdout.
 
 ```bash
-uv run ty-apm catalog list
-uv run ty-apm catalog show business_system.2_1.application_business_list
-uv run ty-apm catalog search 错误
-uv run ty-apm catalog filter --safety read
-uv run ty-apm catalog audit-safety
+ty-apm catalog list
+ty-apm catalog show application.3_1_1.application_app_list
+ty-apm catalog search 应用
+ty-apm catalog filter --safety read
+ty-apm catalog audit-safety
 
-uv run ty-apm auth test
-uv run ty-apm auth clear-token
+ty-apm auth test
+ty-apm auth clear-token
 
-uv run ty-apm api call business_system.2_1.application_business_list \
-  --param 'endTime=2026-06-14 20:00:00' \
-  --param timePeriod=60
+ty-apm api call application.3_1_1.application_app_list --param timePeriod=60
+
+ty-apm resolve application --name "my-app"
+
+ty-apm snapshot collect --profile catalog-smoke --run-id smoke_001
+ty-apm snapshot collect --profile inventory --run-id inventory_001
+ty-apm snapshot collect --profile health-rules --run-id health_rules_001
+ty-apm snapshot collect --profile application-context --application-id 123 --since 60m --run-id app_123_001
 ```
 
-Every command writes one JSON envelope to stdout. Non-read calls return an error envelope and do not execute HTTP.
+There is no raw path caller. v1 only executes `safety=read` and `execution_supported=true` catalog entries.
 
 ## Artifacts
 
-API calls are archived under:
-
-```text
-artifacts/runs/<run_id>/
-  run.json
-  calls/
-  logs/calls.jsonl
-```
-
-Use `--run-id` to share a run directory across multiple calls.
+Only snapshots persist evidence by default under `artifacts/runs/<run_id>/`. Live artifacts can contain sensitive business evidence even after secret redaction. Do not commit, sync, or paste them by default.
 
 ## Tests
 
+Default tests are offline/mock only and must not call real Tingyun:
+
 ```bash
-uv run pytest
+PYTHONPATH=src python3 -m pytest -q
 ```
-
-The test suite covers catalog schema, safety audit, token mock flow, token cache, redaction, mock read API calls, artifact creation, and non-read refusal.
-
-## Docs
-
-- [Catalog spec](docs/catalog-spec.md)
-- [Safety policy](docs/safety-policy.md)
-- [Agent output contract](docs/agent-output-contract.md)
-- [Testing](docs/testing.md)
-- [Company-machine live testing guide](docs/live-testing-on-company-machine.md)
-- [Catalog coverage report](docs/catalog-coverage-report.md)
-
