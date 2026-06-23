@@ -1,9 +1,39 @@
-from ty_apm_cli.auth import build_auth_signature
+import httpx
+
+from ty_apm_cli.auth import AuthManager, build_auth_signature, build_auth_source
+from ty_apm_cli.config import AppConfig
 from ty_apm_cli.redact import redact, redact_url
+
+
+def test_auth_source_string_uses_timestamp_literal():
+    source = build_auth_source("ak", "sk", 123)
+    assert source == 'api_key="ak"&secret_key="sk"&timestamp="123"'
+    assert "×tamp" not in source
 
 
 def test_auth_signature_matches_manual_formula():
     assert build_auth_signature("ak", "sk", 123) == "4474e4d64d4a8d199a4766f19a92d460"
+
+
+def test_token_request_uses_timestamp_query_and_redacts_cache(tmp_path):
+    seen = {}
+
+    def handler(request):
+        seen["query"] = str(request.url.query)
+        return httpx.Response(200, json={"code": 200, "msg": "success", "access_token": "live-token"})
+
+    cfg = AppConfig(
+        base_url="https://tingyun.example",
+        api_key="ak",
+        secret_key="sk",
+        artifacts_dir=tmp_path,
+        token_cache_path=tmp_path / "token-cache.json",
+    )
+    token = AuthManager(cfg, http_client=httpx.Client(transport=httpx.MockTransport(handler))).get_token()
+    assert token.access_token == "live-token"
+    assert "timestamp=" in seen["query"]
+    assert "%C3%97tamp" not in seen["query"]
+    assert not (tmp_path / "runs").exists()
 
 
 def test_redaction_masks_secret_strings_and_bearer_headers():

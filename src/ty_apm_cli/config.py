@@ -16,6 +16,7 @@ class AppConfig:
     secret_key: str = ""
     artifacts_dir: Path = PROJECT_ROOT / "artifacts"
     catalog_path: Path = PROJECT_ROOT / "catalog" / "tingyun-apm-api.catalog.json"
+    token_cache_path: Path = PROJECT_ROOT / ".ty-apm-token-cache.json"
     timeout_seconds: float = 10.0
     token_cache: bool = True
 
@@ -26,6 +27,7 @@ ENV_MAP = {
     "secret_key": "TY_APM_SECRET_KEY",
     "artifacts_dir": "TY_APM_ARTIFACTS_DIR",
     "catalog_path": "TY_APM_CATALOG_PATH",
+    "token_cache_path": "TY_APM_TOKEN_CACHE_PATH",
 }
 
 
@@ -50,6 +52,7 @@ def load_config(
     secret_key: Optional[str] = None,
     artifacts_dir: Optional[str] = None,
     catalog_path: Optional[str] = None,
+    token_cache_path: Optional[str] = None,
     timeout_seconds: Optional[float] = None,
     no_token_cache: bool = False,
     config_path: Optional[str] = None,
@@ -68,6 +71,7 @@ def load_config(
         "secret_key": secret_key,
         "artifacts_dir": artifacts_dir,
         "catalog_path": catalog_path,
+        "token_cache_path": token_cache_path,
         "timeout_seconds": timeout_seconds,
     }
     for field, value in cli_values.items():
@@ -76,7 +80,7 @@ def load_config(
 
     cfg = AppConfig()
     clean = {
-        key: _path(value) if key in {"artifacts_dir", "catalog_path"} else value
+        key: _path(value) if key in {"artifacts_dir", "catalog_path", "token_cache_path"} else value
         for key, value in data.items()
         if key in AppConfig.__dataclass_fields__
     }

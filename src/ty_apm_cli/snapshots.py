@@ -12,6 +12,10 @@ from .http_client import TingyunClient
 from .redact import redact
 
 SECTION_NAMES = ["identity", "topology", "behavior_samples", "rules_and_config"]
+MANIFEST_SCHEMA = "ty-apm.snapshot.manifest.v1"
+SUMMARY_SCHEMA = "ty-apm.snapshot.summary.v1"
+COVERAGE_SCHEMA = "ty-apm.snapshot.coverage.v1"
+SECTION_SCHEMA = "ty-apm.snapshot.section.v1"
 
 
 @dataclass
@@ -39,6 +43,7 @@ class SnapshotWriter:
                 "created_at": now_iso(),
                 "command": "snapshot.collect",
                 "profile": self.profile,
+                "scope": self.target,
                 "catalog_ref": self.catalog_ref,
                 "target": self.target,
                 "redaction": {"enabled": True},
@@ -56,6 +61,7 @@ class SnapshotWriter:
             "schema_version": "ty-apm.call_log.v1",
             "ts": now_iso(),
             "run_id": self.run_id,
+            "catalog_ref": self.catalog_ref,
             "call_id": call_id,
             "catalog_id": entry.get("id"),
             "method": entry.get("method"),
@@ -73,13 +79,20 @@ class SnapshotWriter:
         }
         with (self.logs_dir / "calls.jsonl").open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(redact(log_row), ensure_ascii=False, sort_keys=True) + "\n")
-        source = {"catalog_id": entry.get("id"), "call_id": call_id, "artifact": f"calls/{res_path.name}"}
+        source = {
+            "catalog_id": entry.get("id"),
+            "call_id": call_id,
+            "artifact_path": f"calls/{res_path.name}",
+            "artifact": f"calls/{res_path.name}",
+            "item_count": log_row["items_count"],
+            "collected_at": log_row["ts"],
+        }
         self.calls.append({**log_row, "source": source, "envelope": record.envelope})
         return source
 
     def section(self, name: str, payload: Dict[str, Any]) -> None:
         body = {
-            "schema_version": "ty-apm.snapshot_section.v1",
+            "schema_version": SECTION_SCHEMA,
             "section": name,
             **payload,
         }
@@ -99,27 +112,42 @@ class SnapshotWriter:
             path = self.sections_dir / f"{name}.json"
             completed = path.exists()
             section_gaps = [gap for gap in gaps if gap.get("section") == name]
+            blocked = any(gap.get("type") == "safety_blocked" for gap in section_gaps)
+            failed = any(gap.get("type") not in {"not_implemented", "skipped", "safety_blocked"} for gap in section_gaps)
+            status = "completed"
+            if not completed:
+                status = "skipped"
+            if blocked:
+                status = "blocked"
+            elif failed:
+                status = "failed"
             sections.append(
                 {
                     "name": name,
                     "requested": True,
                     "completed": completed,
                     "complete": completed and not section_gaps,
+                    "status": status,
                     "sources": _section_sources(path) if completed else [],
                     "gaps": section_gaps,
                 }
             )
         coverage = {
-            "schema_version": "ty-apm.coverage.v1",
+            "schema_version": COVERAGE_SCHEMA,
             "profile": self.profile,
+            "run_id": self.run_id,
+            "catalog_ref": self.catalog_ref,
             "sections": sections,
             "blocked_by_safety": [gap for gap in gaps if gap.get("type") == "safety_blocked"],
             "not_implemented": [gap for gap in gaps if gap.get("type") == "not_implemented"],
             "failures": [gap for gap in gaps if gap.get("type") not in {"safety_blocked", "not_implemented"}],
         }
         summary = {
-            "schema_version": "ty-apm.snapshot_summary.v1",
+            "schema_version": SUMMARY_SCHEMA,
+            "run_id": self.run_id,
             "profile": self.profile,
+            "catalog_ref": self.catalog_ref,
+            "scope": self.target,
             "target": self.target,
             "counts": {"calls_total": len(self.calls), "calls_ok": sum(1 for c in self.calls if c.get("ok"))},
             "execution": {
@@ -132,10 +160,11 @@ class SnapshotWriter:
             },
         }
         manifest = {
-            "schema_version": "ty-apm.snapshot_manifest.v1",
+            "schema_version": MANIFEST_SCHEMA,
             "run_id": self.run_id,
             "profile": self.profile,
             "created_at": now_iso(),
+            "scope": self.target,
             "target": self.target,
             "time_range": time_range or {},
             "limits": limits or {},
@@ -254,7 +283,7 @@ def _safe_calls(
             gaps.append(
                 {
                     "section": section,
-                    "type": "call_failed",
+                    "type": _gap_type(call.get("envelope", {})),
                     "catalog_id": entry.get("id"),
                     "message": call.get("envelope", {}).get("error", {}).get("message", "call failed"),
                 }
@@ -312,3 +341,18 @@ def _section_sources(path: Path) -> List[Dict[str, Any]]:
         return list(payload.get("sources", []))
     except Exception:
         return []
+
+
+def _gap_type(envelope: Dict[str, Any]) -> str:
+    error_type = envelope.get("error", {}).get("type")
+    message = str(envelope.get("error", {}).get("message", ""))
+    if error_type == "ValidationError" and "missing required parameter" in message:
+        return "missing_required_param"
+    return {
+        "SafetyBlocked": "safety_blocked",
+        "ValidationError": "failed",
+        "UpstreamError": "upstream_error",
+        "HttpError": "http_error",
+        "TimeoutError": "http_error",
+        "AuthError": "http_error",
+    }.get(str(error_type), "failed")

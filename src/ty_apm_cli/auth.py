@@ -20,9 +20,12 @@ class AuthError(RuntimeError):
     pass
 
 
+def build_auth_source(api_key: str, secret_key: str, timestamp_ms: int) -> str:
+    return f'api_key="{api_key}"&secret_key="{secret_key}"&timestamp="{timestamp_ms}"'
+
+
 def build_auth_signature(api_key: str, secret_key: str, timestamp_ms: int) -> str:
-    raw = f'api_key="{api_key}"&secret_key="{secret_key}"&timestamp="{timestamp_ms}"'
-    return hashlib.md5(raw.encode("utf-8")).hexdigest().lower()
+    return hashlib.md5(build_auth_source(api_key, secret_key, timestamp_ms).encode("utf-8")).hexdigest().lower()
 
 
 @dataclass(frozen=True)
@@ -39,7 +42,7 @@ class AuthManager:
 
     @property
     def cache_file(self) -> Path:
-        return Path(self.config.artifacts_dir) / "token-cache.json"
+        return Path(self.config.token_cache_path)
 
     def clear_token(self) -> bool:
         if self.cache_file.exists():

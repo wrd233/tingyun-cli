@@ -18,6 +18,8 @@ export TY_APM_API_KEY="..."
 export TY_APM_SECRET_KEY="..."
 ```
 
+Optional: set `TY_APM_TOKEN_CACHE_PATH` to move the local token cache. The cache is not part of snapshot evidence artifacts.
+
 ## Commands
 
 All commands write exactly one JSON envelope to stdout.
@@ -42,11 +44,13 @@ ty-apm snapshot collect --profile health-rules --run-id health_rules_001
 ty-apm snapshot collect --profile application-context --application-id 123 --since 60m --run-id app_123_001
 ```
 
-There is no raw path caller. v1 only executes `safety=read` and `execution_supported=true` catalog entries.
+Failure envelopes are still JSON on stdout and return a non-zero exit code. There is no raw path caller. v1 only executes `safety=read` and `execution_supported=true` catalog entries.
 
 ## Artifacts
 
 Only snapshots persist evidence by default under `artifacts/runs/<run_id>/`. Live artifacts can contain sensitive business evidence even after secret redaction. Do not commit, sync, or paste them by default.
+
+Ordinary `api call` is lightweight by default: it returns the raw upstream response inside the JSON envelope and does not create a run directory.
 
 ## Tests
 
@@ -55,3 +59,5 @@ Default tests are offline/mock only and must not call real Tingyun:
 ```bash
 PYTHONPATH=src python3 -m pytest -q
 ```
+
+Manual live smoke testing is documented in `docs/live-testing.md` and is intentionally separate from pytest.

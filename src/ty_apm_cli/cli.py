@@ -178,6 +178,7 @@ def _global_options(argv: List[str]) -> Tuple[Dict[str, Any], List[str]]:
         "--secret-key": "secret_key",
         "--artifacts-dir": "artifacts_dir",
         "--catalog-path": "catalog_path",
+        "--token-cache-path": "token_cache_path",
         "--config": "config_path",
         "--timeout": "timeout_seconds",
     }

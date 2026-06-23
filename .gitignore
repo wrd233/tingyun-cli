@@ -5,3 +5,4 @@ __pycache__/
 .pytest_cache/
 artifacts/
 config.local.json
+.ty-apm-token-cache.json

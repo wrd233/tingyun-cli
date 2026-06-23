@@ -1,5 +1,6 @@
 {
   "base_url": "https://tingyun.example.invalid",
   "api_key": "example-api-key",
-  "secret_key": "example-secret-key"
+  "secret_key": "example-secret-key",
+  "token_cache_path": ".ty-apm-token-cache.json"
 }
