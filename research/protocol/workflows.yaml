@@ -1,0 +1,357 @@
+{
+  "capabilities": [
+    {
+      "id": "list_business_systems",
+      "title": "业务系统发现",
+      "inputs": [
+        "time_context optional for observed topology follow-up"
+      ],
+      "outputs": [
+        "business_system_id candidates",
+        "business system display metadata"
+      ],
+      "uses": [
+        "ep_post_server_api_application_business_list",
+        "ep_post_server_api_data_business_querybizsystem",
+        "ep_get_server_api_data_business_getbusinesstree"
+      ],
+      "semantic": "枚举业务系统和业务系统树；结构资源目标是可完整枚举，但实际分页结束条件需按 endpoint contract 逐项审计。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "read_business_topology",
+      "title": "业务系统拓扑读取",
+      "inputs": [
+        "bizSystemId",
+        "time_context"
+      ],
+      "outputs": [
+        "structural nodes",
+        "time-windowed runtime edges"
+      ],
+      "uses": [
+        "ep_post_server_api_graph_querybizsystengraph",
+        "ep_post_server_api_graph_querybizdetailgraph",
+        "ep_post_server_api_graph_querygraphhealth",
+        "ep_get_server_api_data_business_appendsubbusinessapplist"
+      ],
+      "semantic": "区分业务系统结构关系与运行调用边；调用边必须保留 time_context。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "read_application_overview",
+      "title": "应用概览与实例",
+      "inputs": [
+        "bizSystemId",
+        "applicationId",
+        "time_context"
+      ],
+      "outputs": [
+        "application overview metrics",
+        "instance list",
+        "health/simple trace summary"
+      ],
+      "uses": [
+        "ep_post_server_api_graph_information",
+        "ep_post_server_api_graph_application_receive",
+        "ep_post_server_api_application_app_list",
+        "ep_post_server_api_application_app_list_score",
+        "ep_post_server_api_health_simpletrace"
+      ],
+      "semantic": "应用级元数据、实例和健康摘要能力。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "read_performance_timeseries",
+      "title": "性能时间序列",
+      "inputs": [
+        "bizSystemId/applicationId/actionId as applicable",
+        "endTime",
+        "timePeriod"
+      ],
+      "outputs": [
+        "response time",
+        "throughput",
+        "error rate",
+        "apdex series"
+      ],
+      "uses": [
+        "ep_post_server_api_application_charts_response",
+        "ep_post_server_api_application_charts_throught",
+        "ep_post_server_api_application_charts_error",
+        "ep_post_server_api_application_charts_apdex",
+        "ep_post_server_api_webaction_charts_response_quantlie",
+        "ep_post_server_api_webaction_charts_throught",
+        "ep_post_server_api_webaction_charts_error"
+      ],
+      "semantic": "每个 metric 需保留 scope/semantic/aggregation/unit/time_context/shape，不跨 endpoint 合并统计口径。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "list_runtime_requests",
+      "title": "运行对象清单",
+      "inputs": [
+        "bizSystemId",
+        "applicationId",
+        "time_context",
+        "pagination",
+        "sort/filter when observed"
+      ],
+      "outputs": [
+        "transactions",
+        "service interfaces",
+        "external calls",
+        "component operations"
+      ],
+      "uses": [
+        "ep_post_server_api_webaction_list_actionitemlist",
+        "ep_post_server_api_application_ext_urilist",
+        "ep_post_server_api_topo_line_external_uplist",
+        "ep_post_server_api_topo_line_external_downlist",
+        "ep_post_server_api_errorlist"
+      ],
+      "semantic": "不虚构统一列表 endpoint；仅用真实清单能力组成上层统一统计语义。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "list_alarm_events",
+      "title": "告警事件入口",
+      "inputs": [
+        "pageNumber",
+        "pageSize",
+        "timePeriod",
+        "endTime",
+        "eventType",
+        "frequent"
+      ],
+      "outputs": [
+        "alarm event traces",
+        "target labels",
+        "policy and agreement IDs"
+      ],
+      "uses": [
+        "ep_post_nalarm_api_event_tracelist",
+        "ep_post_nalarm_api_event_trace_countstate",
+        "ep_post_nalarm_api_event_trace_triggerchartstate"
+      ],
+      "semantic": "告警列表提供 eventTraceId、target、parentGroup 等进入运行对象和 trace 的候选 ID。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "read_alarm_event_detail",
+      "title": "告警详情读取",
+      "inputs": [
+        "event id",
+        "time_context"
+      ],
+      "outputs": [
+        "alarm target",
+        "parent application/business system",
+        "metric details"
+      ],
+      "uses": [
+        "ep_post_nalarm_api_event_trace",
+        "ep_post_nalarm_api_event_read",
+        "ep_post_nalarm_api_event_metric_chart"
+      ],
+      "semantic": "详情响应可证明 target 和 parentGroup，但不能自动证明所有 target value 与 actionId 等价，除非下游请求消费。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "read_trace_detail",
+      "title": "Trace 详情",
+      "inputs": [
+        "bizSystemId",
+        "applicationId",
+        "actionType",
+        "traceGuid",
+        "queryTimestamp",
+        "time_context"
+      ],
+      "outputs": [
+        "trace summary",
+        "actionGuid",
+        "traceId",
+        "instanceId",
+        "duration",
+        "headers/data field inventory"
+      ],
+      "uses": [
+        "ep_post_server_api_action_trace_detail",
+        "ep_post_server_api_action_trace_calltree",
+        "ep_post_server_api_action_trace_detail_exceptions",
+        "ep_post_server_api_action_trace_detail_stacktraces",
+        "ep_post_server_api_action_trace_detail_queryagentversioninfo"
+      ],
+      "semantic": "已知 traceGuid/actionGuid 入口；callTree 需要 traceId/actionGuid/queryTimestamp 等来自 detail 或页面上下文。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "search_trace_logs",
+      "title": "Trace 日志搜索",
+      "inputs": [
+        "applicationId",
+        "traceId",
+        "startTime",
+        "endTime",
+        "pagination"
+      ],
+      "outputs": [
+        "log trace page result"
+      ],
+      "uses": [
+        "ep_post_server_api_data_logtrace_searchlogtrace"
+      ],
+      "semantic": "可证明 envelope 和空结果；本批证据未证明非空日志 item 字段。",
+      "verification": "PARTIALLY_VERIFIED"
+    },
+    {
+      "id": "manage_business_settings",
+      "title": "配置管理读写闭环证据",
+      "inputs": [
+        "bizSystemId or global setting id",
+        "setting payload"
+      ],
+      "outputs": [
+        "read setting",
+        "write response",
+        "readback candidate"
+      ],
+      "uses": [
+        "ep_post_server_api_data_business_querybizsystemsetting",
+        "ep_post_server_api_data_business_updatebizsystemsetting",
+        "ep_post_server_api_data_business_queryglobalsetting",
+        "ep_post_server_api_data_business_updateglobalsetting"
+      ],
+      "semantic": "保存真实观察到的配置写请求与前置读取；不实现执行器，不做 live write。",
+      "verification": "PARTIALLY_VERIFIED"
+    },
+    {
+      "id": "manage_alarm_rules",
+      "title": "告警规则 CRUD 证据",
+      "inputs": [
+        "policyId",
+        "policy payload",
+        "target filters"
+      ],
+      "outputs": [
+        "page list",
+        "init data",
+        "save/enable/disable/delete responses"
+      ],
+      "uses": [
+        "ep_post_nalarm_api_config_setting_pagelist",
+        "ep_post_nalarm_api_config_setting_initview",
+        "ep_post_nalarm_api_config_setting_save",
+        "ep_post_nalarm_api_config_setting_enable",
+        "ep_post_nalarm_api_config_setting_disable",
+        "ep_post_nalarm_api_config_setting_delete"
+      ],
+      "semantic": "真实 Session 观察到告警规则 CRUD；payload/ID/回读证据进入 endpoint contracts，执行安全框架留到未来。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "manage_anomaly_detection_policy",
+      "title": "异常检测策略更新证据",
+      "inputs": [
+        "targetType/hostType/code/value filters",
+        "alarmPolicyList"
+      ],
+      "outputs": [
+        "template policies",
+        "update result"
+      ],
+      "uses": [
+        "ep_post_nalarm_api_config_setting_getproblemtemplatepolicy_condition_100",
+        "ep_post_nalarm_api_config_setting_getproblemtemplatepolicy_condition_200",
+        "ep_post_nalarm_api_config_setting_update_policys"
+      ],
+      "semantic": "真实观察到读取、修改、回读/恢复候选链路；不做回放验收。",
+      "verification": "VERIFIED"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "scan_business_system",
+      "title": "确定性业务系统扫描",
+      "verification": "PARTIALLY_VERIFIED",
+      "inputs": [
+        "business system starting context",
+        "single explicit time_context"
+      ],
+      "steps": [
+        "list_business_systems",
+        "read_business_topology",
+        "read_application_overview",
+        "read_performance_timeseries",
+        "list_runtime_requests"
+      ],
+      "rules": [
+        "只在已获得 application_id 时读取应用能力",
+        "只在分页响应提供下一页或 total/page 条件时继续翻页",
+        "发现真实 dependency type 才读取对应 dependency 能力",
+        "未验证能力只记录 gap，不补链路"
+      ]
+    },
+    {
+      "id": "alarm_to_trace",
+      "title": "告警到 Trace 深挖",
+      "verification": "PARTIALLY_VERIFIED",
+      "inputs": [
+        "alarm list filter",
+        "selected alarm event",
+        "trace/deep-link evidence when available"
+      ],
+      "steps": [
+        "list_alarm_events",
+        "read_alarm_event_detail",
+        "list_runtime_requests",
+        "read_trace_detail",
+        "search_trace_logs"
+      ],
+      "rules": [
+        "告警 target.value 不默认等价 actionId；必须由下游请求或页面 URL 证明",
+        "跨页面 deep link 与 API 验证分开记录",
+        "没有 traceGuid 时不得编造 trace detail 请求"
+      ]
+    },
+    {
+      "id": "trace_investigation",
+      "title": "已知 Trace 深挖",
+      "verification": "VERIFIED",
+      "inputs": [
+        "traceGuid/actionGuid",
+        "bizSystemId",
+        "applicationId",
+        "queryTimestamp",
+        "time_context"
+      ],
+      "steps": [
+        "read_trace_detail",
+        "search_trace_logs"
+      ],
+      "rules": [
+        "detail/callTree/exceptions/stack 的参数链必须来自同一 trace evidence 或明确进入 gap",
+        "空日志结果只证明 envelope，不证明 item 字段"
+      ]
+    },
+    {
+      "id": "observed_write_capture_preservation",
+      "title": "真实写能力资料保存",
+      "verification": "VERIFIED",
+      "inputs": [
+        "captured read/write/readback evidence only"
+      ],
+      "steps": [
+        "manage_alarm_rules",
+        "manage_anomaly_detection_policy",
+        "manage_business_settings"
+      ],
+      "rules": [
+        "本轮不写执行器",
+        "不做真实写入",
+        "只保存真实 payload、ID lineage、回读/恢复证据"
+      ]
+    }
+  ]
+}
