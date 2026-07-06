@@ -88,30 +88,111 @@
       "verification": "VERIFIED"
     },
     {
-      "id": "list_runtime_requests",
-      "title": "运行对象清单",
+      "id": "list_recent_requests",
+      "title": "近期请求统计清单",
+      "inputs": [
+        "bizSystemId",
+        "time_context",
+        "ranking dimension from response/throughput/error lists"
+      ],
+      "outputs": [
+        "ranked request/action summaries",
+        "request count / response / throughput / error list envelopes",
+        "topN overview when returned"
+      ],
+      "uses": [
+        "ep_post_server_api_webaction_list_responselist",
+        "ep_post_server_api_webaction_list_throughtlist",
+        "ep_post_server_api_webaction_list_errorlist"
+      ],
+      "semantic": "已证明近期/窗口化请求统计清单存在；它不是逐条 Trace 列表，item 到 traceGuid 的选择血缘仍进入 gap_recent_request_trace_selection。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "list_transactions",
+      "title": "事务列表",
       "inputs": [
         "bizSystemId",
         "applicationId",
+        "actionId/actionType when scoped",
         "time_context",
-        "pagination",
-        "sort/filter when observed"
+        "pagination if provided by endpoint contract"
       ],
       "outputs": [
-        "transactions",
-        "service interfaces",
-        "external calls",
-        "component operations"
+        "transaction/action item summaries",
+        "actionId/actionType/application scoped runtime statistics"
       ],
       "uses": [
         "ep_post_server_api_webaction_list_actionitemlist",
+        "ep_post_server_api_webaction_list_actionlist"
+      ],
+      "semantic": "事务/action item 清单与通用近期统计清单分开；actionList 目前为 documented-only，因此整体能力不升级为完全 VERIFIED。",
+      "verification": "PARTIALLY_VERIFIED"
+    },
+    {
+      "id": "list_service_interfaces",
+      "title": "服务接口列表",
+      "inputs": [
+        "applicationId or webaction application context",
+        "time_context",
+        "pagination when observed or documented"
+      ],
+      "outputs": [
+        "service interface summaries",
+        "interface list / mini-list records when available"
+      ],
+      "uses": [
+        "ep_post_server_api_webaction_app_interface",
+        "ep_post_server_api_webaction_list_interfacelist",
+        "ep_post_server_api_webaction_list_interfaceminilist"
+      ],
+      "semantic": "服务接口使用独立 endpoint 族；当前主要来自官方文档，不能被事务列表替代或误标为真实 Session 完整证明。",
+      "verification": "PARTIALLY_VERIFIED"
+    },
+    {
+      "id": "list_external_calls",
+      "title": "外部调用列表",
+      "inputs": [
+        "bizSystemId",
+        "applicationId/action context when scoped",
+        "time_context",
+        "direction up/down",
+        "pagination when provided"
+      ],
+      "outputs": [
+        "external URI summaries",
+        "upstream/downstream external call lists"
+      ],
+      "uses": [
         "ep_post_server_api_application_ext_urilist",
         "ep_post_server_api_topo_line_external_uplist",
-        "ep_post_server_api_topo_line_external_downlist",
-        "ep_post_server_api_errorlist"
+        "ep_post_server_api_topo_line_external_downlist"
       ],
-      "semantic": "不虚构统一列表 endpoint；仅用真实清单能力组成上层统一统计语义。",
+      "semantic": "外部调用有独立 application ext URI 与 topo line up/down 列表，不与事务或组件操作合并。",
       "verification": "VERIFIED"
+    },
+    {
+      "id": "list_component_operations",
+      "title": "组件操作列表",
+      "inputs": [
+        "bizSystemId/application/component context",
+        "component type: database / NoSQL / MQ",
+        "time_context",
+        "pagination when provided"
+      ],
+      "outputs": [
+        "database action summaries",
+        "NoSQL component names / graph candidates",
+        "MQ application or consume-product records when available"
+      ],
+      "uses": [
+        "ep_post_server_api_component_database_actionlist",
+        "ep_post_server_api_nosql_componentname_list",
+        "ep_post_server_api_mq_mqapplication_list",
+        "ep_post_server_api_mq_consume_product"
+      ],
+      "semantic": "数据库、NoSQL、MQ 共享组件操作抽象，但证据深度不均；不得把 NoSQL 真实字段套用到 MQ。",
+      "verification": "PARTIALLY_VERIFIED"
     },
     {
       "id": "list_alarm_events",
@@ -158,14 +239,39 @@
       "verification": "VERIFIED"
     },
     {
-      "id": "read_trace_detail",
-      "title": "Trace 详情",
+      "id": "resolve_action_context",
+      "title": "Action / Runtime 对象身份解析",
+      "inputs": [
+        "observed actionId from deep link or alarm/runtime context",
+        "optional bizSystemId/applicationId from page URL or parentGroup"
+      ],
+      "outputs": [
+        "action id/name/alias",
+        "applicationId binding",
+        "runtime action context for metrics or trace navigation"
+      ],
+      "uses": [
+        "ep_get_server_api_action_get_12489",
+        "ep_get_server_api_action_alias_12489",
+        "ep_get_server_api_action_get_13354",
+        "ep_get_server_api_action_alias_13354",
+        "ep_get_server_api_action_get_13458",
+        "ep_get_server_api_action_alias_13458",
+        "ep_get_server_api_action_get_13514",
+        "ep_get_server_api_action_alias_13514"
+      ],
+      "semantic": "只表达已观察 action/get 与 action/alias 实例把 deep link actionId 解析为运行对象上下文；不建立通用 ID resolver。",
+      "verification": "PARTIALLY_VERIFIED"
+    },
+    {
+      "id": "get_trace_detail",
+      "title": "Trace Detail 读取",
       "inputs": [
         "bizSystemId",
         "applicationId",
         "actionType",
-        "traceGuid",
-        "queryTimestamp",
+        "traceGuid or actionGuid",
+        "queryTimestamp when required",
         "time_context"
       ],
       "outputs": [
@@ -177,14 +283,83 @@
         "headers/data field inventory"
       ],
       "uses": [
-        "ep_post_server_api_action_trace_detail",
-        "ep_post_server_api_action_trace_calltree",
-        "ep_post_server_api_action_trace_detail_exceptions",
-        "ep_post_server_api_action_trace_detail_stacktraces",
+        "ep_post_server_api_action_trace_detail"
+      ],
+      "semantic": "已知 traceGuid/actionGuid 入口；detail 是 callTree、exception、stack 和 agent context 的主要身份来源。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "get_trace_call_tree",
+      "title": "Trace Call Tree 读取",
+      "inputs": [
+        "traceId",
+        "actionGuid",
+        "bizSystemId",
+        "applicationId",
+        "queryTimestamp/time_context from detail or page context"
+      ],
+      "outputs": [
+        "call tree nodes",
+        "nodeMap/actions/applications/bizSystems/instances dictionaries"
+      ],
+      "uses": [
+        "ep_post_server_api_action_trace_calltree"
+      ],
+      "semantic": "callTree 请求消费 detail 或页面上下文中的 traceId/actionGuid/queryTimestamp；缺失连接必须进 gap。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "list_trace_exceptions",
+      "title": "Trace Exception 列表",
+      "inputs": [
+        "traceId/actionGuid or trace context",
+        "bizSystemId/applicationId",
+        "time_context"
+      ],
+      "outputs": [
+        "exception records",
+        "HTTP/error code evidence when returned"
+      ],
+      "uses": [
+        "ep_post_server_api_action_trace_detail_exceptions"
+      ],
+      "semantic": "异常列表是独立 trace detail supplement，不由 callTree 字段推断。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "get_trace_stack",
+      "title": "Trace Stack 读取",
+      "inputs": [
+        "trace context",
+        "node/tree context when required by endpoint contract",
+        "time_context"
+      ],
+      "outputs": [
+        "stack trace envelope",
+        "stack frames when non-empty evidence exists"
+      ],
+      "uses": [
+        "ep_post_server_api_action_trace_detail_stacktraces"
+      ],
+      "semantic": "Endpoint 已观察，但代表性非空 stack frame 覆盖不足；不能从 exception message 构造 stack。",
+      "verification": "PARTIALLY_VERIFIED"
+    },
+    {
+      "id": "get_trace_agent_context",
+      "title": "Trace Agent Context 读取",
+      "inputs": [
+        "trace/detail context",
+        "instanceId/action context when required"
+      ],
+      "outputs": [
+        "agent version/context envelope",
+        "instance or agent candidate metadata"
+      ],
+      "uses": [
         "ep_post_server_api_action_trace_detail_queryagentversioninfo"
       ],
-      "semantic": "已知 traceGuid/actionGuid 入口；callTree 需要 traceId/actionGuid/queryTimestamp 等来自 detail 或页面上下文。",
-      "verification": "VERIFIED"
+      "semantic": "用于补充 instance/agent 版本候选字段；不足以证明完整主机/进程/Agent 拓扑。",
+      "verification": "PARTIALLY_VERIFIED"
     },
     {
       "id": "search_trace_logs",
@@ -280,17 +455,48 @@
         "single explicit time_context"
       ],
       "steps": [
-        "list_business_systems",
-        "read_business_topology",
-        "read_application_overview",
-        "read_performance_timeseries",
-        "list_runtime_requests"
+        {
+          "capability": "list_business_systems",
+          "required": true
+        },
+        {
+          "capability": "read_business_topology",
+          "required": true
+        },
+        {
+          "capability": "read_application_overview",
+          "required": true
+        },
+        {
+          "capability": "read_performance_timeseries",
+          "required": true
+        },
+        {
+          "capability": "list_recent_requests",
+          "required": true
+        },
+        {
+          "capability": "list_transactions",
+          "required": true
+        },
+        {
+          "capability": "list_service_interfaces",
+          "required": false
+        },
+        {
+          "capability": "list_external_calls",
+          "required": true
+        },
+        {
+          "capability": "list_component_operations",
+          "required": false
+        }
       ],
       "rules": [
         "只在已获得 application_id 时读取应用能力",
         "只在分页响应提供下一页或 total/page 条件时继续翻页",
         "发现真实 dependency type 才读取对应 dependency 能力",
-        "未验证能力只记录 gap，不补链路"
+        "服务接口和组件操作作为可选扩展读取；未验证能力只记录 gap，不补链路"
       ]
     },
     {
@@ -303,16 +509,44 @@
         "trace/deep-link evidence when available"
       ],
       "steps": [
-        "list_alarm_events",
-        "read_alarm_event_detail",
-        "list_runtime_requests",
-        "read_trace_detail",
-        "search_trace_logs"
+        {
+          "capability": "list_alarm_events",
+          "required": true
+        },
+        {
+          "capability": "read_alarm_event_detail",
+          "required": true
+        },
+        {
+          "capability": "resolve_action_context",
+          "required": true
+        },
+        {
+          "capability": "list_transactions",
+          "required": false
+        },
+        {
+          "capability": "get_trace_detail",
+          "required": true
+        },
+        {
+          "capability": "get_trace_call_tree",
+          "required": true
+        },
+        {
+          "capability": "list_trace_exceptions",
+          "required": false
+        },
+        {
+          "capability": "search_trace_logs",
+          "required": false
+        }
       ],
       "rules": [
-        "告警 target.value 不默认等价 actionId；必须由下游请求或页面 URL 证明",
-        "跨页面 deep link 与 API 验证分开记录",
-        "没有 traceGuid 时不得编造 trace detail 请求"
+        "告警 target.value 不默认等价 actionId；必须由 action/get、action/alias、页面 URL 或下游请求证明",
+        "跨页面 deep link、Action 身份解析与 Trace API 验证分开记录",
+        "没有 traceGuid/actionGuid 时不得编造 trace detail 请求",
+        "日志搜索只是 optional enrichment，空结果不影响告警到 Trace 核心链判断"
       ]
     },
     {
@@ -327,30 +561,35 @@
         "time_context"
       ],
       "steps": [
-        "read_trace_detail",
-        "search_trace_logs"
+        {
+          "capability": "get_trace_detail",
+          "required": true
+        },
+        {
+          "capability": "get_trace_call_tree",
+          "required": true
+        },
+        {
+          "capability": "list_trace_exceptions",
+          "required": true
+        },
+        {
+          "capability": "get_trace_stack",
+          "required": false
+        },
+        {
+          "capability": "get_trace_agent_context",
+          "required": false
+        },
+        {
+          "capability": "search_trace_logs",
+          "required": false
+        }
       ],
       "rules": [
-        "detail/callTree/exceptions/stack 的参数链必须来自同一 trace evidence 或明确进入 gap",
+        "detail/callTree/exceptions 的参数链必须来自同一 trace evidence 或明确进入 gap",
+        "stack、agent context、log search 是 optional enrichment；PARTIALLY_VERIFIED 不作为 VERIFIED 核心链必需步骤",
         "空日志结果只证明 envelope，不证明 item 字段"
-      ]
-    },
-    {
-      "id": "observed_write_capture_preservation",
-      "title": "真实写能力资料保存",
-      "verification": "VERIFIED",
-      "inputs": [
-        "captured read/write/readback evidence only"
-      ],
-      "steps": [
-        "manage_alarm_rules",
-        "manage_anomaly_detection_policy",
-        "manage_business_settings"
-      ],
-      "rules": [
-        "本轮不写执行器",
-        "不做真实写入",
-        "只保存真实 payload、ID lineage、回读/恢复证据"
       ]
     }
   ]

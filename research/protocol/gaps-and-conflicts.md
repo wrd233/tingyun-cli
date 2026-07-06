@@ -10,6 +10,11 @@
 - 下一次 Capture 要补什么：下一次 Capture 专门进入服务组页面，记录列表、详情、应用成员、分页和保存前后读取。
 - 成功判定条件：能证明 `service_group_id -> application_id[]` 或明确 NOT_FOUND。
 - 禁止假设：不得按显示名或业务系统名合并服务组。
+- related_capabilities:
+  - `list_business_systems`
+- related_recipes:
+  - `scan_business_system`
+- evidence_seed: `GET /server-api/data/business/getBusinessTree` 与业务系统树证据只能作为起点，不能替代服务组身份。
 
 validation task:
 - goal: 服务组身份未由 Session 深度证明
@@ -19,6 +24,33 @@ validation task:
 - success criteria: 能证明 `service_group_id -> application_id[]` 或明确 NOT_FOUND。
 - do not assume: 不得按显示名或业务系统名合并服务组。
 
+## gap_cross_system_boundary: 跨业务系统边界未形成完整调用闭环
+
+- 已知事实：业务系统拓扑和调用边可证明一跳运行边界，部分响应含 caller/callee 业务系统候选。
+- 缺失证据：缺少跨业务系统调用从拓扑边进入下游应用、事务、Trace 的完整参数血缘。
+- 对能力影响：跨业务系统边界只能 PARTIALLY_VERIFIED，不能声明任意跨系统递归扫描。
+- 下一次 Capture 要补什么：从业务系统拓扑选择一条跨系统调用边，进入下游系统/应用/事务并抓取后续 Trace 或统计请求。
+- 成功判定条件：证明 topology edge field -> downstream bizSystemId/applicationId/actionId/trace parameter。
+- 禁止假设：不得按显示名、拓扑位置或 action name 推断跨系统身份等价。
+- related_capabilities:
+  - `read_business_topology`
+  - `list_transactions`
+  - `get_trace_detail`
+- related_endpoints:
+  - `ep_post_server_api_graph_querybizsystengraph`
+  - `ep_post_server_api_graph_querybizdetailgraph`
+- related_recipes:
+  - `scan_business_system`
+- evidence_seed: 从 `01-business-system-top-down` 的业务系统拓扑请求开始，沿同一 UI 点击补齐下游请求。
+
+validation task:
+- goal: 跨业务系统边界未形成完整调用闭环
+- starting context: `read_business_topology`，重点看 `ep_post_server_api_graph_querybizsystengraph` 和 `ep_post_server_api_graph_querybizdetailgraph`。
+- exploration target: 从业务系统拓扑选择一条跨系统调用边，进入下游系统/应用/事务并抓取后续 Trace 或统计请求。
+- evidence to capture: request, response, page URL, journey interaction, export if produced.
+- success criteria: 证明 topology edge field -> downstream bizSystemId/applicationId/actionId/trace parameter。
+- do not assume: 不得按显示名、拓扑位置或 action name 推断跨系统身份等价。
+
 ## gap_host_process_agent_depth: 主机/进程/Agent 深度不足
 
 - 已知事实：Trace/detail 和 instance 相关响应出现 instance/agent 版本候选字段。
@@ -27,10 +59,20 @@ validation task:
 - 下一次 Capture 要补什么：Capture 实例详情、环境信息、Agent 版本页面和主机进程列表。
 - 成功判定条件：证明 application instance -> host/process/agent 的字段血缘。
 - 禁止假设：不得把 instanceName 或 IP 字符串直接当稳定主机 ID。
+- related_capabilities:
+  - `read_application_overview`
+  - `get_trace_agent_context`
+- related_endpoints:
+  - `ep_post_server_api_graph_information`
+  - `ep_post_server_api_action_trace_detail_queryagentversioninfo`
+- related_recipes:
+  - `scan_business_system`
+  - `trace_investigation`
+- evidence_seed: 从应用概览实例列表与 trace agent context 补充请求对比 instanceId / agent version 字段。
 
 validation task:
 - goal: 主机/进程/Agent 深度不足
-- starting context: 使用本轮 `research/protocol/endpoint-contracts.yaml` 中相关 Endpoint。
+- starting context: `read_application_overview` 与 `get_trace_agent_context`，重点看 `ep_post_server_api_graph_information` 和 `ep_post_server_api_action_trace_detail_queryagentversioninfo`。
 - exploration target: Capture 实例详情、环境信息、Agent 版本页面和主机进程列表。
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
 - success criteria: 证明 application instance -> host/process/agent 的字段血缘。
@@ -61,10 +103,25 @@ validation task:
 - 下一次 Capture 要补什么：从事务列表选择一条请求，抓取 trace list、trace detail、call tree 全链路。
 - 成功判定条件：证明 list.response.field -> trace detail request.parameter。
 - 禁止假设：不得用相似 actionId 补 traceGuid。
+- related_capabilities:
+  - `resolve_action_context`
+  - `list_transactions`
+  - `get_trace_detail`
+  - `get_trace_call_tree`
+- related_endpoints:
+  - `ep_get_server_api_action_get_12489`
+  - `ep_get_server_api_action_alias_12489`
+  - `ep_post_server_api_webaction_list_actionitemlist`
+  - `ep_post_server_api_action_trace_detail`
+  - `ep_post_server_api_action_trace_calltree`
+- related_recipes:
+  - `alarm_to_trace`
+  - `trace_investigation`
+- evidence_seed: `03-alarm-to-trace` request-0380/request-0381 for action context and request-0476/request-0490 for trace detail/callTree.
 
 validation task:
 - goal: 运行对象到 Trace 列表血缘不完整
-- starting context: 使用本轮 `research/protocol/endpoint-contracts.yaml` 中相关 Endpoint。
+- starting context: `resolve_action_context` -> `list_transactions` -> `get_trace_detail`，重点看 action/get、action/alias、webaction actionItemList 与 trace/detail。
 - exploration target: 从事务列表选择一条请求，抓取 trace list、trace detail、call tree 全链路。
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
 - success criteria: 证明 list.response.field -> trace detail request.parameter。
@@ -78,10 +135,21 @@ validation task:
 - 下一次 Capture 要补什么：Capture 业务系统近期请求清单，排序后点击一条进入 Trace。
 - 成功判定条件：记录 item 字段、点击 URL、后续 request 参数。
 - 禁止假设：不得把 CSV 事务名称当 Wire trace key。
+- related_capabilities:
+  - `list_recent_requests`
+  - `get_trace_detail`
+- related_endpoints:
+  - `ep_post_server_api_webaction_list_responselist`
+  - `ep_post_server_api_webaction_list_throughtlist`
+  - `ep_post_server_api_webaction_list_errorlist`
+  - `ep_post_server_api_action_trace_detail`
+- related_recipes:
+  - `scan_business_system`
+- evidence_seed: 从 webaction response/throught/error list 的 item 字段点击进入 Trace，并保存页面 URL 与后续 trace/detail 请求。
 
 validation task:
 - goal: 近期请求清单到 Trace 选择需要补证
-- starting context: 使用本轮 `research/protocol/endpoint-contracts.yaml` 中相关 Endpoint。
+- starting context: `list_recent_requests`，重点看 responseList、throughtList、errorList 及后续 trace/detail。
 - exploration target: Capture 业务系统近期请求清单，排序后点击一条进入 Trace。
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
 - success criteria: 记录 item 字段、点击 URL、后续 request 参数。
@@ -95,10 +163,19 @@ validation task:
 - 下一次 Capture 要补什么：选择含异常栈的 trace，抓取 stackTraces 非空响应。
 - 成功判定条件：获得非空 stack frame 字段并关联 treeId/traceId。
 - 禁止假设：不得从 exception msg 构造 stack。
+- related_capabilities:
+  - `get_trace_stack`
+  - `list_trace_exceptions`
+- related_endpoints:
+  - `ep_post_server_api_action_trace_detail_stacktraces`
+  - `ep_post_server_api_action_trace_detail_exceptions`
+- related_recipes:
+  - `trace_investigation`
+- evidence_seed: 从已知异常 Trace 先抓 exceptions，再抓 stackTraces 非空响应。
 
 validation task:
 - goal: Stack 非空结构未充分证明
-- starting context: 使用本轮 `research/protocol/endpoint-contracts.yaml` 中相关 Endpoint。
+- starting context: `list_trace_exceptions` -> `get_trace_stack`，重点看 exceptions 与 stackTraces 的共同 trace context。
 - exploration target: 选择含异常栈的 trace，抓取 stackTraces 非空响应。
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
 - success criteria: 获得非空 stack frame 字段并关联 treeId/traceId。
@@ -112,10 +189,20 @@ validation task:
 - 下一次 Capture 要补什么：分别选择数据库、Redis/NoSQL、MQ 调用边并进入列表、图表、Trace。
 - 成功判定条件：每类至少一个非空 list、chart、trace 响应。
 - 禁止假设：不得把 NoSQL 字段套用到 MQ。
+- related_capabilities:
+  - `list_component_operations`
+- related_endpoints:
+  - `ep_post_server_api_component_database_actionlist`
+  - `ep_post_server_api_nosql_componentname_list`
+  - `ep_post_server_api_mq_mqapplication_list`
+  - `ep_post_server_api_mq_consume_product`
+- related_recipes:
+  - `scan_business_system`
+- evidence_seed: 分别从数据库 actionList、NoSQL componentName/list、MQ documented endpoints 找同深度非空 list/chart/trace。
 
 validation task:
 - goal: 数据库/NoSQL/MQ 指标深度不均
-- starting context: 使用本轮 `research/protocol/endpoint-contracts.yaml` 中相关 Endpoint。
+- starting context: `list_component_operations`，重点看 database actionList、NoSQL componentName/list、MQApplication/list 与 consume-product。
 - exploration target: 分别选择数据库、Redis/NoSQL、MQ 调用边并进入列表、图表、Trace。
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
 - success criteria: 每类至少一个非空 list、chart、trace 响应。
@@ -163,10 +250,19 @@ validation task:
 - 下一次 Capture 要补什么：对每个写对象捕获前置读取、最小修改、回读验证、恢复、最终回读。
 - 成功判定条件：每个动态 ID 和恢复 payload 均有证据。
 - 禁止假设：不得设计 dry-run/rollback 执行框架。
+- related_capabilities:
+  - `manage_business_settings`
+  - `manage_alarm_rules`
+  - `manage_anomaly_detection_policy`
+- related_endpoints:
+  - `ep_post_server_api_data_business_updatebizsystemsetting`
+  - `ep_post_nalarm_api_config_setting_save`
+  - `ep_post_nalarm_api_config_setting_update_policys`
+- evidence_seed: 写能力仅作为 Endpoint Contract 与 Capability 证据保留，不再建正式 Recipe。
 
 validation task:
 - goal: 部分写能力回读/恢复链路不完整
-- starting context: 使用本轮 `research/protocol/endpoint-contracts.yaml` 中相关 Endpoint。
+- starting context: `manage_business_settings`、`manage_alarm_rules`、`manage_anomaly_detection_policy` 的读写/回读端点。
 - exploration target: 对每个写对象捕获前置读取、最小修改、回读验证、恢复、最终回读。
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
 - success criteria: 每个动态 ID 和恢复 payload 均有证据。

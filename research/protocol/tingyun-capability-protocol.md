@@ -39,11 +39,11 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 
 ### 性能与运行指标
 
-核心 Metric 保留最小统计身份：`scope`、`semantic`、`aggregation`、`unit`、`time_context`、`shape`。导出文件证明用户可见统计语义，例如 P50/P75/P95/P99、吞吐率、请求数、错误率、慢次数、异常次数，但不反推 Wire 字段或排序参数。
+核心 Metric 保留最小统计身份：`scope`、`semantic`、`aggregation`、`unit`、`time_context`、`shape`。导出文件证明用户可见统计语义，例如 P50/P75/P95/P99、吞吐率、请求数、错误率、慢次数、异常次数，但不反推 Wire 字段或排序参数。运行对象清单不再合并为单一 Capability：近期请求统计、事务、服务接口、外部调用和组件操作分别按真实 Endpoint 边界建模。
 
 ### 问题溯源
 
-已观察到告警入口、运行对象入口和已知 Trace 入口。强证据链包括 `nalarm-api/event/traceList`、`nalarm-api/event/trace`、动作概览 deep link、`server-api/action/trace/detail`、`callTree`、`exceptions` 和日志搜索。缺口是部分运行清单到 traceGuid 的来源仍需后续 Capture 补强。
+已观察到告警入口、Action/运行对象身份桥梁和已知 Trace 入口。强证据链包括 `nalarm-api/event/traceList`、`nalarm-api/event/trace`、动作概览 deep link、`server-api/action/get/{observedActionId}`、`server-api/action/alias/{observedActionId}`、`server-api/action/trace/detail`、`callTree` 和 `exceptions`。Stack、Agent Context 和日志搜索作为 Trace 深挖补充能力记录；缺口是部分运行清单到 traceGuid 的来源仍需后续 Capture 补强。
 
 ## 能力覆盖矩阵
 
@@ -54,37 +54,38 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 | 资源与拓扑 | 应用 | VERIFIED | `read_application_overview` | `scan_business_system` | `` |
 | 资源与拓扑 | 实例 | VERIFIED | `read_application_overview` | `scan_business_system` | `` |
 | 资源与拓扑 | 主机 | PARTIALLY_VERIFIED | `read_application_overview` | `scan_business_system` | `gap_host_process_agent_depth` |
-| 资源与拓扑 | 进程 | PARTIALLY_VERIFIED | `read_trace_detail` | `trace_investigation` | `gap_host_process_agent_depth` |
-| 资源与拓扑 | Agent | PARTIALLY_VERIFIED | `read_trace_detail` | `trace_investigation` | `gap_host_process_agent_depth` |
+| 资源与拓扑 | 进程 | PARTIALLY_VERIFIED | `get_trace_agent_context` | `trace_investigation` | `gap_host_process_agent_depth` |
+| 资源与拓扑 | Agent | PARTIALLY_VERIFIED | `get_trace_agent_context` | `trace_investigation` | `gap_host_process_agent_depth` |
 | 资源与拓扑 | 容器 / Pod / Namespace | NOT_FOUND | `` | `` | `gap_container_pod_namespace` |
 | 资源与拓扑 | 内部调用 | VERIFIED | `read_business_topology` | `scan_business_system` | `` |
-| 资源与拓扑 | 数据库 | PARTIALLY_VERIFIED | `list_runtime_requests` | `scan_business_system` | `gap_database_depth` |
-| 资源与拓扑 | NoSQL | PARTIALLY_VERIFIED | `list_runtime_requests` | `scan_business_system` | `gap_nosql_depth` |
-| 资源与拓扑 | MQ | DOCUMENTED_ONLY | `` | `` | `gap_mq_observation` |
-| 资源与拓扑 | 外部服务 | VERIFIED | `list_runtime_requests` | `scan_business_system` | `` |
+| 资源与拓扑 | 数据库 | PARTIALLY_VERIFIED | `list_component_operations` | `scan_business_system` | `gap_database_nosql_mq_metrics` |
+| 资源与拓扑 | NoSQL | PARTIALLY_VERIFIED | `list_component_operations` | `scan_business_system` | `gap_database_nosql_mq_metrics` |
+| 资源与拓扑 | MQ | DOCUMENTED_ONLY | `list_component_operations` | `scan_business_system` | `gap_database_nosql_mq_metrics` |
+| 资源与拓扑 | 外部服务 | VERIFIED | `list_external_calls` | `scan_business_system` | `` |
 | 资源与拓扑 | 跨业务系统边界 | PARTIALLY_VERIFIED | `read_business_topology` | `scan_business_system` | `gap_cross_system_boundary` |
 | 性能与运行指标 | 业务系统 | VERIFIED | `read_business_topology` | `scan_business_system` | `` |
 | 性能与运行指标 | 应用 | VERIFIED | `read_application_overview` | `scan_business_system` | `` |
 | 性能与运行指标 | 实例 | PARTIALLY_VERIFIED | `read_application_overview` | `scan_business_system` | `` |
-| 性能与运行指标 | 事务 / 请求 | VERIFIED | `list_runtime_requests` | `scan_business_system` | `` |
-| 性能与运行指标 | 服务接口 | PARTIALLY_VERIFIED | `list_runtime_requests` | `scan_business_system` | `` |
+| 性能与运行指标 | 事务 / 请求 | PARTIALLY_VERIFIED | `list_transactions` | `scan_business_system` | `` |
+| 性能与运行指标 | 服务接口 | PARTIALLY_VERIFIED | `list_service_interfaces` | `scan_business_system` | `` |
 | 性能与运行指标 | 调用边 | VERIFIED | `read_business_topology` | `scan_business_system` | `` |
-| 性能与运行指标 | 数据库 / NoSQL / MQ | PARTIALLY_VERIFIED | `list_runtime_requests` | `scan_business_system` | `gap_database_nosql_mq_metrics` |
-| 性能与运行指标 | 外部调用 | VERIFIED | `list_runtime_requests` | `scan_business_system` | `` |
+| 性能与运行指标 | 数据库 / NoSQL / MQ | PARTIALLY_VERIFIED | `list_component_operations` | `scan_business_system` | `gap_database_nosql_mq_metrics` |
+| 性能与运行指标 | 外部调用 | VERIFIED | `list_external_calls` | `scan_business_system` | `` |
 | 性能与运行指标 | 概览 | VERIFIED | `read_application_overview` | `scan_business_system` | `` |
 | 性能与运行指标 | 时间趋势 | VERIFIED | `read_performance_timeseries` | `scan_business_system` | `` |
 | 性能与运行指标 | 分位值 | VERIFIED | `read_performance_timeseries` | `scan_business_system` | `` |
-| 性能与运行指标 | Top / Ranking | VERIFIED | `list_runtime_requests` | `scan_business_system` | `` |
-| 性能与运行指标 | 请求统计清单 | VERIFIED | `list_runtime_requests` | `scan_business_system` | `` |
+| 性能与运行指标 | Top / Ranking | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
+| 性能与运行指标 | 请求统计清单 | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
 | 问题溯源 | 告警入口 | VERIFIED | `list_alarm_events` | `alarm_to_trace` | `` |
-| 问题溯源 | 运行对象入口 | PARTIALLY_VERIFIED | `list_runtime_requests` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
-| 问题溯源 | 近期清单入口 | PARTIALLY_VERIFIED | `list_runtime_requests` | `scan_business_system` | `gap_recent_request_trace_selection` |
-| 问题溯源 | 已知 Trace 入口 | VERIFIED | `read_trace_detail` | `trace_investigation` | `` |
-| 问题溯源 | Trace 列表 | PARTIALLY_VERIFIED | `list_runtime_requests` | `trace_investigation` | `gap_trace_list_non_alarm` |
-| 问题溯源 | Trace Detail | VERIFIED | `read_trace_detail` | `trace_investigation` | `` |
-| 问题溯源 | Call Tree | VERIFIED | `read_trace_detail` | `trace_investigation` | `` |
-| 问题溯源 | Exception | VERIFIED | `read_trace_detail` | `trace_investigation` | `` |
-| 问题溯源 | Stack | PARTIALLY_VERIFIED | `read_trace_detail` | `trace_investigation` | `gap_stack_non_empty` |
+| 问题溯源 | Action / 运行对象身份 | PARTIALLY_VERIFIED | `resolve_action_context` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
+| 问题溯源 | 运行对象入口 | PARTIALLY_VERIFIED | `list_transactions` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
+| 问题溯源 | 近期清单入口 | PARTIALLY_VERIFIED | `list_recent_requests` | `scan_business_system` | `gap_recent_request_trace_selection` |
+| 问题溯源 | 已知 Trace 入口 | VERIFIED | `get_trace_detail` | `trace_investigation` | `` |
+| 问题溯源 | Trace 列表 | PARTIALLY_VERIFIED | `list_transactions` | `trace_investigation` | `gap_runtime_to_trace_list` |
+| 问题溯源 | Trace Detail | VERIFIED | `get_trace_detail` | `trace_investigation` | `` |
+| 问题溯源 | Call Tree | VERIFIED | `get_trace_call_tree` | `trace_investigation` | `` |
+| 问题溯源 | Exception | VERIFIED | `list_trace_exceptions` | `trace_investigation` | `` |
+| 问题溯源 | Stack | PARTIALLY_VERIFIED | `get_trace_stack` | `trace_investigation` | `gap_stack_non_empty` |
 
 ## 单 Session 连续真实回放
 
@@ -94,19 +95,19 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 |---:|---|---|---|---|
 | 1 | 用户切换到过去 7 天告警列表 | POST /nalarm-api/event/traceList | request-0361 | 请求含 `pageNumber/pageSize/timePeriod/endTime/eventType/frequent/lang`；响应 `data.totalElements` 和 `data.content[]`，content 中有 `id`、`target.value`、`parentGroup[$application_id/$biz_system_id]`。 |
 | 2 | 用户在告警详情页点击“跳转至详情” | POST /nalarm-api/event/trace | request-0366 | 请求 `id` 来自告警详情页 URL/选中告警上下文；响应再次给出 `target.value`、`parentGroup`、`alarmEventItems[].eventTraceId`。 |
-| 3 | 新标签进入事务概览 Deep Link | GET /server-api/action/get/{observedActionId}` / `GET /server-api/action/alias/{observedActionId}` | request-0380, request-0381 | 页面 URL 形如 `/web/server/action/overview/{bizSystemId}/{applicationId}/{actionId}`；`action/alias` 响应将 action id 与 applicationId、name/alias 绑定。 |
+| 3 | 新标签进入事务概览 Deep Link | `GET /server-api/action/get/{observedActionId}` / `GET /server-api/action/alias/{observedActionId}` | request-0380, request-0381 | 页面 URL 形如 `/web/server/action/overview/{bizSystemId}/{applicationId}/{actionId}`；`resolve_action_context` 只表达这些已观察 action id 与 applicationId、name/alias 的绑定，不建立通用 ID resolver。 |
 | 4 | 读取事务指标与错误页 | POST /server-api/webaction/* 与 POST /server-api/error/smart/* | request-0400 - request-0464 | 事务概览、图表、错误分解和异常列表均在同一打开标签内发生；这证明告警可落到运行对象与问题页，但不证明所有错误项都有 traceGuid。 |
-| 5 | 进入已知 Trace 详情 | POST /server-api/action/trace/detail | request-0476 | 请求含 `bizSystemId/applicationId/actionType/traceGuid/queryTimestamp/timePeriod/endTime`；响应给出 `traceGuid/actionGuid/traceId/instanceId/duration/timeLine`。 |
-| 6 | Trace 深挖 | POST /server-api/action/trace/callTree`、`detail/exceptions`、`data/logTrace/searchLogTrace` | request-0490, request-0494, request-0496 | `callTree` 请求消费 detail 上下文中的 `traceId/actionGuid/queryTimestamp`；exceptions 返回非空 HTTP Error Code；logTrace 返回空列表，只证明 envelope。 |
+| 5 | 进入已知 Trace 详情 | `POST /server-api/action/trace/detail` | request-0476 | `get_trace_detail` 请求含 `bizSystemId/applicationId/actionType/traceGuid/queryTimestamp/timePeriod/endTime`；响应给出 `traceGuid/actionGuid/traceId/instanceId/duration/timeLine`。 |
+| 6 | Trace 深挖 | `POST /server-api/action/trace/callTree`、`detail/exceptions`、`data/logTrace/searchLogTrace` | request-0490, request-0494, request-0496 | `get_trace_call_tree` 消费 detail 上下文中的 `traceId/actionGuid/queryTimestamp`；`list_trace_exceptions` 返回非空 HTTP Error Code；`search_trace_logs` 返回空列表，只作为 optional enrichment 证明 envelope。 |
 
 ## 跨 Session 组合能力路径
 
 | 阶段 | Session | Capability | 连接级别 | 说明 |
 |---|---|---|---|---|
 | 业务系统拓扑扫描 | `01-business-system-top-down` | `list_business_systems` -> `read_business_topology` | VERIFIED CONNECTION | 同 Session 内业务系统、应用和调用边有连续请求证据。 |
-| 应用深入指标 | `02-application-deep-dive` | `read_application_overview` -> `read_performance_timeseries` -> `list_runtime_requests` | PROTOCOL-COMPATIBLE | 与 01 使用同类 `server-api` Endpoint 和相同对象类型；不是一次真实连续操作。 |
-| 告警到 Trace | `03-alarm-to-trace` | `list_alarm_events` -> `read_alarm_event_detail` -> `read_trace_detail` | VERIFIED CONNECTION | 同 Session 内存在告警、运行对象和 Trace 深挖链路。 |
-| 写能力保存 | `04/05/06` | `manage_business_settings` / `manage_anomaly_detection_policy` / `manage_alarm_rules` | PROTOCOL-COMPATIBLE | 写能力作为协议资料保存，不参与扫描 Recipe 的自动执行。 |
+| 应用深入指标 | `02-application-deep-dive` | `read_application_overview` -> `read_performance_timeseries` -> `list_recent_requests` / `list_transactions` / `list_external_calls` | PROTOCOL-COMPATIBLE | 与 01 使用同类 `server-api` Endpoint 和相同对象类型；不是一次真实连续操作。 |
+| 告警到 Trace | `03-alarm-to-trace` | `list_alarm_events` -> `read_alarm_event_detail` -> `resolve_action_context` -> `get_trace_detail` -> `get_trace_call_tree` | VERIFIED CONNECTION WITH GAPS | 同 Session 内存在告警、运行对象身份桥梁和 Trace 深挖链路；运行清单 item 到 traceGuid 的通用选择仍是 Gap。 |
+| 写能力证据保存 | `04/05/06` | `manage_business_settings` / `manage_anomaly_detection_policy` / `manage_alarm_rules` | EVIDENCE PRESERVED | 写能力保留为 Endpoint Contract 与 Capability 证据；不再作为正式业务 Recipe，不参与自动执行。 |
 
 ## 导出字段语义对照
 
