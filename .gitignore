@@ -1,8 +1,0 @@
-.DS_Store
-.venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-artifacts/
-config.local.json
-.ty-apm-token-cache.json
