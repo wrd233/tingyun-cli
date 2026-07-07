@@ -29,7 +29,7 @@ _FIELD_TO_METRIC = {
     "responseP99": ("p99", "ms"),
     "throughput": ("throughput", "per_second"),
     "totalCount": ("total_count", "count"),
-    "errorRate": ("error_rate", "ratio"),
+    "errorRate": ("error_rate", "percent"),
     "errorTotalCount": ("error_count", "count"),
     "slowCount": ("slow_count", "count"),
     "exceptionCountTotal": ("exception_count", "count"),
@@ -105,6 +105,10 @@ def inspect_candidates_filter(run_path: Path, *, metric: str, operator: str, val
     return {"schema_version": 1, "run_id": Path(run_path).name, "metric": metric, "operator": operator, "value": value, "items": items}
 
 
+_PROVEN_TRACE_REQUEST_TYPES = {"WEB", "TX"}
+_PROVEN_URL_REQUEST_TYPES = {"WEB", "TX"}
+
+
 def _candidate_item(index: int, row: Dict[str, Any], source_run_id: str, scope: Dict[str, Any], raw_ref: str) -> Dict[str, Any]:
     item: Dict[str, Any] = {
         "item_ref": f"item-{index:04d}",
@@ -121,14 +125,28 @@ def _candidate_item(index: int, row: Dict[str, Any], source_run_id: str, scope: 
     }
     if is_investigate_trace_eligible(item):
         item["available_actions"] = ["investigate_trace"]
+    if _is_url_eligible(item):
         item["links"] = [_candidate_detail_link(item["wire_identity"])]
         item["navigation"] = {"status": "SUCCESS", "verification": "DERIVED_FROM_VERIFIED_ROUTE"}
+    else:
+        item["navigation"] = {"status": "MISSING", "reason": "URL_NOT_VERIFIED"}
     return item
 
 
 def is_investigate_trace_eligible(item: Dict[str, Any]) -> bool:
     identity = item.get("wire_identity", {})
-    return all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId", "requestType"))
+    if not all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId", "requestType")):
+        return False
+    request_type = identity.get("requestType", "")
+    return request_type in _PROVEN_TRACE_REQUEST_TYPES
+
+
+def _is_url_eligible(item: Dict[str, Any]) -> bool:
+    identity = item.get("wire_identity", {})
+    if not all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId")):
+        return False
+    request_type = identity.get("requestType", "")
+    return request_type in _PROVEN_URL_REQUEST_TYPES
 
 
 def is_inspect_call_tree_eligible(item: Dict[str, Any]) -> bool:

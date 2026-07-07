@@ -4,7 +4,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .candidates import is_inspect_call_tree_eligible, is_investigate_trace_eligible, normalize_candidates
 from .config import Config
@@ -81,7 +81,7 @@ def run_collect(
         performance_result = executor.execute(_performance_request(biz_system_id, time_context))
         candidates_result = executor.execute(_candidate_request(biz_system_id, time_context))
 
-        artifacts = _collect_artifacts(source, source_run_id, scope, time_context, topology_result, performance_result, candidates_result)
+        artifacts = _collect_artifacts(source, source_run_id, run.run_id, scope, time_context, topology_result, performance_result, candidates_result)
         for filename, artifact in artifacts.items():
             store.write_json(run.path / "evidence" / filename, artifact)
         coverage = _coverage_from_artifacts(artifacts)
@@ -222,13 +222,18 @@ def export_sanitized_run(store: RunStore, run_id: str, output_dir: Path) -> Dict
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
+    safe_files = {"manifest.json", "preflight.json", "coverage.json", "run-meta.json"}
     for path in source.rglob("*.json"):
         rel = path.relative_to(source)
-        data = json.loads(path.read_text(encoding="utf-8"))
-        sanitized = _sanitize(data, root=store.root)
-        target = output_dir / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(sanitized, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+        if rel.parts[0] == "raw":
+            if not rel.name.startswith("request-"):
+                continue
+        if rel.parts[0] == "evidence" or rel.name in safe_files:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            sanitized = _sanitize(data, root=store.root)
+            target = output_dir / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(sanitized, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
     return {"schema_version": 1, "command": "sanitized_export", "status": "SUCCESS", "output_path": str(output_dir)}
 
 
@@ -434,6 +439,7 @@ def _call_tree_request(source: Dict[str, Any], time_context: Dict[str, Any]) -> 
 def _collect_artifacts(
     source,
     source_run_id,
+    collect_run_id,
     scope,
     time_context,
     topology_result: ExecutionResult,
@@ -452,7 +458,7 @@ def _collect_artifacts(
         },
         "topology.json": _topology_artifact(topology_result, scope, time_context),
         "performance.json": _performance_artifact(performance_result, scope, time_context),
-        "candidates.json": _candidates_artifact(candidates_result, source_run_id, scope, time_context),
+        "candidates.json": _candidates_artifact(candidates_result, collect_run_id, scope, time_context),
     }
 
 
@@ -505,12 +511,16 @@ def _topology_artifact(result: ExecutionResult, scope: Dict[str, Any], time_cont
         return _failed_artifact("topology", scope, time_context, result, data={"structural_nodes": [], "runtime_edges": []})
     response = result.response or {}
     data = response.get("data") if isinstance(response.get("data"), dict) else {}
-    nodes = data.get("nodes") or data.get("nodeList") or []
-    edges = data.get("edges") or data.get("lines") or []
+    nodes = data.get("nodes") or data.get("nodeList") or data.get("nodeDataArray") or []
+    edges = data.get("edges") or data.get("lines") or data.get("linkeDataArray") or []
+    no_data = data.get("noData")
+    has_content = bool(nodes or edges)
+    if no_data is True and not has_content:
+        has_content = False
     return {
         "schema_version": 1,
         "kind": "topology",
-        "status": "SUCCESS" if nodes or edges else "EMPTY",
+        "status": "SUCCESS" if has_content else "EMPTY",
         "scope": scope,
         "time_context": time_context,
         "derived_from": _derived_from(result),
@@ -524,6 +534,13 @@ def _performance_artifact(result: ExecutionResult, scope: Dict[str, Any], time_c
         return _failed_artifact("performance", scope, time_context, result, data={"metrics": {}})
     response = result.response or {}
     data = response.get("data") if isinstance(response.get("data"), dict) else {}
+    _SERIES_NAME_MAP = {
+        "响应时间": "response_avg",
+        "50分位值": "p50",
+        "80分位值": "p80",
+        "95分位值": "p95",
+        "99分位值": "p99",
+    }
     metrics = {
         "response_avg": {"semantic": "response_time", "aggregation": "average", "unit": "ms", "series": data.get("avg") or data.get("average") or []},
         "p50": {"semantic": "response_time", "aggregation": "p50", "unit": "ms", "series": data.get("p50") or data.get("P50") or []},
@@ -531,7 +548,34 @@ def _performance_artifact(result: ExecutionResult, scope: Dict[str, Any], time_c
         "p95": {"semantic": "response_time", "aggregation": "p95", "unit": "ms", "series": data.get("p95") or data.get("P95") or []},
         "p99": {"semantic": "response_time", "aggregation": "p99", "unit": "ms", "series": data.get("p99") or data.get("P99") or []},
     }
-    has_series = any(metric["series"] for metric in metrics.values())
+    overview_data = data.get("overviews")
+    if isinstance(overview_data, dict):
+        metrics["overview"] = {
+            "avg": {"value": overview_data.get("avg"), "unit": "ms"} if overview_data.get("avg") is not None else None,
+            "max": {"value": overview_data.get("max"), "unit": "ms"} if overview_data.get("max") is not None else None,
+        }
+    series_array = data.get("series")
+    if isinstance(series_array, list):
+        for s in series_array:
+            if not isinstance(s, dict):
+                continue
+            name = s.get("name", "")
+            metric_key = _SERIES_NAME_MAP.get(name)
+            if metric_key is None:
+                continue
+            points = s.get("data") or s.get("points") or []
+            if isinstance(points, list):
+                extracted = []
+                for pt in points:
+                    if isinstance(pt, dict) and "y" in pt:
+                        extracted.append({"timestamp": pt.get("x"), "value": pt["y"]})
+                if extracted:
+                    metrics[metric_key]["series"] = extracted
+    has_series = any(
+        (isinstance(metric.get("series"), list) and len(metric["series"]) > 0)
+        for metric in metrics.values()
+        if isinstance(metric, dict)
+    )
     return {
         "schema_version": 1,
         "kind": "performance",
@@ -824,22 +868,93 @@ def _sanitize(value: Any, *, root: Path) -> Any:
         "bizSystemId",
         "applicationId",
         "systemId",
+        "instanceId",
+        "instanceName",
         "available_actions",
         "links",
         "url",
     }
+    name_label_keys = {
+        "display_name",
+        "name",
+        "applicationName",
+        "bizSystemName",
+        "actionName",
+    }
+    id_value_keys = {"bizSystemId", "applicationId", "actionId", "systemId", "instanceId", "actionGuid", "traceId"}
+    pseudonyms = _PseudonymState()
+    _collect_identity_values(value, pseudonyms)
+    return _sanitize_with_state(value, root=root, secret_parts=secret_parts, identity_keys=identity_keys,
+                               name_label_keys=name_label_keys, pseudonyms=pseudonyms)
+
+
+class _PseudonymState:
+    def __init__(self):
+        self.name_map: Dict[str, str] = {}
+        self.id_map: Dict[str, str] = {}
+        self._name_counter = 0
+        self._id_counter = 0
+
+    def pseudonym_for_name(self, original: str, prefix: str) -> str:
+        key = (prefix, original)
+        if key not in self.name_map:
+            self._name_counter += 1
+            self.name_map[key] = f"{prefix}_{self._name_counter:03d}"
+        return self.name_map[key]
+
+    def pseudonym_for_id(self, original: str) -> str:
+        if original not in self.id_map:
+            self._id_counter += 1
+            self.id_map[original] = f"ID_{self._id_counter:03d}"
+        return self.id_map[original]
+
+
+def _collect_identity_values(value: Any, state: _PseudonymState) -> None:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key in ("bizSystemId", "applicationId", "actionId", "systemId", "instanceId", "actionGuid", "traceId"):
+                if isinstance(nested, (str, int)) and nested not in (None, ""):
+                    state.pseudonym_for_id(str(nested))
+            _collect_identity_values(nested, state)
+    elif isinstance(value, list):
+        for item in value:
+            _collect_identity_values(item, state)
+
+
+def _sanitize_with_state(value: Any, *, root: Path, secret_parts: Tuple[str, ...],
+                         identity_keys: Set[str], name_label_keys: Set[str],
+                         pseudonyms: _PseudonymState) -> Any:
     if isinstance(value, dict):
         result = {}
         for key, nested in value.items():
             if key in identity_keys or any(part in key.lower() for part in secret_parts):
                 continue
-            result[key] = _sanitize(nested, root=root)
+            if key in name_label_keys and isinstance(nested, str) and nested:
+                prefix_map = {
+                    "display_name": "BS",
+                    "bizSystemName": "BS",
+                    "applicationName": "APP",
+                    "actionName": "ACTION",
+                    "name": "NAME",
+                }
+                prefix = prefix_map.get(key, "NAME")
+                result[key] = pseudonyms.pseudonym_for_name(nested, prefix)
+            else:
+                result[key] = _sanitize_with_state(nested, root=root, secret_parts=secret_parts,
+                                                   identity_keys=identity_keys, name_label_keys=name_label_keys,
+                                                   pseudonyms=pseudonyms)
         return result
     if isinstance(value, list):
-        return [_sanitize(item, root=root) for item in value]
+        return [_sanitize_with_state(item, root=root, secret_parts=secret_parts,
+                                     identity_keys=identity_keys, name_label_keys=name_label_keys,
+                                     pseudonyms=pseudonyms) for item in value]
     if isinstance(value, str):
         text = value.replace(str(root), "<local-path>")
         if any(part in text.lower() for part in secret_parts):
             return "<redacted>"
         return text
+    if isinstance(value, (int, float)):
+        text = str(value)
+        if text in pseudonyms.id_map:
+            return pseudonyms.id_map[text]
     return value

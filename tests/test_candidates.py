@@ -7,6 +7,7 @@ from tingyun_cli.candidates import (
     inspect_candidates_all,
     inspect_candidates_filter,
     inspect_candidates_top,
+    is_investigate_trace_eligible,
     normalize_candidates,
 )
 
@@ -115,3 +116,105 @@ def test_inspect_candidates_rejects_unstable_metric_and_expressions(tmp_path):
 
     with pytest.raises(ValueError, match="unsupported operator"):
         inspect_candidates_filter(run_path, metric="p99", operator="AND", value=1)
+
+
+def test_error_rate_unit_is_percent_not_ratio():
+    artifact = normalize_candidates(
+        response={"status": 200, "data": [_row(1)]},
+        source_run_id="run-source",
+        scope={"bizSystemId": "biz-1"},
+        time_context={"requested": "last_30m"},
+        raw_ref="raw/response-0003.json",
+    )
+    error_rate = artifact["data"]["items"][0]["metrics"]["error_rate"]
+    assert error_rate["unit"] == "percent"
+
+
+def test_error_rate_percent_value_matches_wire():
+    row = _row(1)
+    row["errorTotalCount"] = 5
+    row["totalCount"] = 100
+    row["errorRate"] = 5.0
+    artifact = normalize_candidates(
+        response={"status": 200, "data": [row]},
+        source_run_id="run-source",
+        scope={"bizSystemId": "biz-1"},
+        time_context={"requested": "last_30m"},
+        raw_ref="raw/response-0003.json",
+    )
+    er = artifact["data"]["items"][0]["metrics"]["error_rate"]
+    assert er["unit"] == "percent"
+    assert er["value"] == 5.0
+
+
+def test_investigate_trace_eligible_only_for_proven_request_types():
+    web_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "WEB"}}
+    tx_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "TX"}}
+    composite_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "TX,IF"}}
+    bg_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "BG"}}
+    incomplete_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10}}
+
+    assert is_investigate_trace_eligible(web_item) is True
+    assert is_investigate_trace_eligible(tx_item) is True
+    assert is_investigate_trace_eligible(composite_item) is False
+    assert is_investigate_trace_eligible(bg_item) is False
+    assert is_investigate_trace_eligible(incomplete_item) is False
+
+
+def test_candidate_with_proven_request_type_gets_available_actions():
+    row = _row(1)
+    row["requestType"] = "WEB"
+    artifact = normalize_candidates(
+        response={"status": 200, "data": [row]},
+        source_run_id="run-source",
+        scope={"bizSystemId": "biz-1"},
+        time_context={"requested": "last_30m"},
+        raw_ref="raw/response-0003.json",
+    )
+    item = artifact["data"]["items"][0]
+    assert item["available_actions"] == ["investigate_trace"]
+    assert "links" in item
+    assert item["navigation"]["status"] == "SUCCESS"
+
+
+def test_candidate_with_composite_request_type_has_no_actions_or_links():
+    row = _row(1)
+    row["requestType"] = "TX,IF"
+    artifact = normalize_candidates(
+        response={"status": 200, "data": [row]},
+        source_run_id="run-source",
+        scope={"bizSystemId": "biz-1"},
+        time_context={"requested": "last_30m"},
+        raw_ref="raw/response-0003.json",
+    )
+    item = artifact["data"]["items"][0]
+    assert "available_actions" not in item
+    assert "links" not in item
+    assert item["navigation"]["status"] == "MISSING"
+
+
+def test_candidate_with_bg_request_type_has_no_actions_or_links():
+    row = _row(1)
+    row["requestType"] = "BG"
+    artifact = normalize_candidates(
+        response={"status": 200, "data": [row]},
+        source_run_id="run-source",
+        scope={"bizSystemId": "biz-1"},
+        time_context={"requested": "last_30m"},
+        raw_ref="raw/response-0003.json",
+    )
+    item = artifact["data"]["items"][0]
+    assert "available_actions" not in item
+    assert "links" not in item
+    assert item["navigation"]["status"] == "MISSING"
+
+
+def test_source_run_id_preserved():
+    artifact = normalize_candidates(
+        response={"status": 200, "data": [_row(1)]},
+        source_run_id="run-collect-123",
+        scope={"bizSystemId": "biz-1"},
+        time_context={"requested": "last_30m"},
+        raw_ref="raw/response-0003.json",
+    )
+    assert artifact["data"]["items"][0]["source_run_id"] == "run-collect-123"
