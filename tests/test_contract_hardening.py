@@ -256,6 +256,70 @@ def test_successful_empty_data_is_empty_but_business_failure_is_failed(tmp_path)
     assert receipt["status"] == "PARTIAL"
 
 
+def test_http_404_response_is_failed_not_empty(tmp_path):
+    store = RunStore(tmp_path)
+    source_run_id = _write_discovery_run(store)
+    transport = SequenceTransport([
+        {"transport_status": 404, "status": 404, "message": "not found"},
+        {"status": 200, "data": {"avg": []}},
+        {"status": 200, "data": []},
+    ])
+
+    receipt = run_collect(
+        store=store,
+        config=_config(tmp_path),
+        source_run_id=source_run_id,
+        source_item_ref="item-0001",
+        time_context_value="last_30m",
+        transport=transport,
+        clock=FakeClock(),
+    )
+
+    run_path = tmp_path / "runs" / receipt["run_id"]
+    topology = json.loads((run_path / "evidence" / "topology.json").read_text())
+
+    assert receipt["status"] == "PARTIAL"
+    assert topology["status"] == "FAILED"
+    assert topology["error"]["status"] == 404
+    assert topology["derived_from"] == ["raw/response-0001.json"]
+
+
+def test_candidate_request_auto_metrics_cover_stable_metric_contract(tmp_path):
+    store = RunStore(tmp_path)
+    source_run_id = _write_discovery_run(store)
+    transport = SequenceTransport([
+        {"status": 200, "data": {"nodes": [{"id": "app-1"}], "edges": []}},
+        {"status": 200, "data": {"avg": [1]}},
+        {"status": 200, "data": [_candidate_row()]},
+    ])
+
+    run_collect(
+        store=store,
+        config=_config(tmp_path),
+        source_run_id=source_run_id,
+        source_item_ref="item-0001",
+        time_context_value="last_30m",
+        transport=transport,
+        clock=FakeClock(),
+    )
+
+    auto_metrics = set(transport.requests[2]["body"]["autoMetrics"])
+    assert {
+        "responseP50",
+        "responseP75",
+        "responseP95",
+        "responseP99",
+        "responseTimeMillisecondAvg",
+        "throughput",
+        "totalCount",
+        "errorRate",
+        "errorTotalCount",
+        "slowCount",
+        "exceptionCountTotal",
+        "apdex",
+    }.issubset(auto_metrics)
+
+
 def test_transient_retry_uses_final_response_in_derived_from(tmp_path):
     store = RunStore(tmp_path)
     source_run_id = _write_discovery_run(store)
