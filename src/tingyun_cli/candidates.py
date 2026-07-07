@@ -78,6 +78,7 @@ def inspect_candidates_all(run_path: Path) -> Dict[str, Any]:
 def inspect_candidates_top(run_path: Path, *, metric: str, limit: int) -> Dict[str, Any]:
     _validate_metric(metric)
     artifact = _load_candidates(run_path)
+    _ensure_metric_available(artifact["data"]["items"], metric)
     items = sorted(
         artifact["data"]["items"],
         key=lambda item: _metric_value(item, metric),
@@ -99,6 +100,7 @@ def inspect_candidates_filter(run_path: Path, *, metric: str, operator: str, val
     if operator not in ops:
         raise ValueError(f"unsupported operator: {operator}")
     artifact = _load_candidates(run_path)
+    _ensure_metric_available(artifact["data"]["items"], metric)
     items = [item for item in artifact["data"]["items"] if ops[operator](_metric_value(item, metric), value)]
     return {"schema_version": 1, "run_id": Path(run_path).name, "metric": metric, "operator": operator, "value": value, "items": items}
 
@@ -117,9 +119,30 @@ def _candidate_item(index: int, row: Dict[str, Any], source_run_id: str, scope: 
         "wire_identity": _wire_identity(row, scope),
         "source_refs": [raw_ref],
     }
-    if row.get("actionId") not in (None, ""):
+    if is_investigate_trace_eligible(item):
         item["available_actions"] = ["investigate_trace"]
+        item["links"] = [_candidate_detail_link(item["wire_identity"])]
+        item["navigation"] = {"status": "SUCCESS", "verification": "DERIVED_FROM_VERIFIED_ROUTE"}
     return item
+
+
+def is_investigate_trace_eligible(item: Dict[str, Any]) -> bool:
+    identity = item.get("wire_identity", {})
+    return all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId", "requestType"))
+
+
+def is_inspect_call_tree_eligible(item: Dict[str, Any]) -> bool:
+    identity = item.get("wire_identity", {})
+    return all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionGuid", "traceId"))
+
+
+def _candidate_detail_link(identity: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "rel": "detail",
+        "url": f"/web/server/action/overview/{identity['bizSystemId']}/{identity['applicationId']}/{identity['actionId']}",
+        "verification": "DERIVED_FROM_VERIFIED_ROUTE",
+        "route_id": "web_server_action_overview",
+    }
 
 
 def _metrics(row: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -169,6 +192,11 @@ def _load_candidates(run_path: Path) -> Dict[str, Any]:
 def _validate_metric(metric: str) -> None:
     if metric not in ALLOWED_CANDIDATE_METRICS:
         raise ValueError(f"unsupported metric: {metric}")
+
+
+def _ensure_metric_available(items: List[Dict[str, Any]], metric: str) -> None:
+    if items and all(metric not in item.get("metrics", {}) for item in items):
+        raise ValueError(f"unavailable metric: {metric}")
 
 
 def _metric_value(item: Dict[str, Any], metric: str) -> float:

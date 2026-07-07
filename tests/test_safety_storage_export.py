@@ -52,7 +52,8 @@ def test_stale_inflight_is_frozen_as_interrupted(tmp_path):
     assert interrupted == [run.run_id]
     manifest = json.loads((tmp_path / "runs" / run.run_id / "manifest.json").read_text())
     assert manifest["overall"] == "INTERRUPTED"
-    assert manifest["live_request_count"] == 0
+    assert manifest["live_request_count"] == 1
+    assert manifest["raw_summary"]["request_count"] == 1
 
 
 def test_sanitized_export_removes_secrets_paths_ids_and_actions(tmp_path):

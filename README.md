@@ -2,6 +2,8 @@
 
 听云 APM 调查 CLI v1 是一个面向 Agent 的只读事实获取工具。它的核心资产不是终端表格或诊断报告，而是每次真实访问后留下的不可变 Run、Raw Wire Evidence、Normalized Evidence、Coverage 和调查血缘。
 
+当前状态：`v1 Runtime Candidate` / `Runtime-contract-hardened`。它已经完成离线 contract hardening，准备进入第一轮受控 Live Golden Path；在该 Live Golden Path 完成前，不称为 Live-Proven。
+
 ## 是什么
 
 - Agent-first：输出稳定 JSON，方便 Agent 调用和读取。
@@ -9,6 +11,7 @@
 - Immutable Run：`discover` / `collect` / `investigate` 每次都创建新 Run。
 - Read-only：Runtime 只允许已进入 Stable Surface 的读路径。
 - Branch-aware：Evidence Item 只在身份完整且 Action 已验证时暴露 `available_actions`。
+- Runtime-contract-hardened：失败步骤会形成 `FAILED` Artifact；成功空数据才是 `EMPTY`；`derived_from` 指向最终支撑 Raw 记录。
 
 ## 不是什么
 
@@ -33,7 +36,7 @@ PYTHONPATH=src python3 -m tingyun_cli --help
 ```bash
 export TINGYUN_BASE_URL="https://your-tingyun-host"
 export TINGYUN_DATA_ROOT=".tingyun-runs"
-export TINGYUN_AUTHORIZATION="Bearer ..."
+export TINGYUN_AUTHORIZATION="Bearer <token>"
 ```
 
 或使用 JSON 配置文件：
@@ -83,6 +86,18 @@ tingyun inspect candidates filter --run-id run-... --metric error_rate --operato
 ```
 
 `inspect` 不访问服务端，不创建 Run，不写 `runs.jsonl`。
+
+如果 Dataset 中所有行都缺少被请求的稳定 metric，`inspect candidates top/filter` 会返回本地错误，而不是按无意义的缺省值排序。
+
+## 运行时语义
+
+- `SUCCESS`：请求成功并得到可信事实。
+- `EMPTY`：请求成功，但该领域没有可信域数据。
+- `FAILED`：请求已尝试，但传输、HTTP 或业务语义失败，无法得到可信事实。
+- `PARTIAL`：Live Run 已完成并落盘，但至少一个 required Artifact 是 `FAILED` 或 `BLOCKED`。
+- `BLOCKED`：请求未开始，因为 source、action、time、lock 或 safety 前置条件不满足。
+
+`live_request_count` 表示实际发送并已持久化 raw request 的 HTTP attempt 数。一次 transient retry 或 auth replay 都会增加该计数。
 
 ## 设计基线
 

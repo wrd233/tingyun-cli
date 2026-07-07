@@ -7,6 +7,8 @@
 3. 从 `evidence/targets.json` 选择一个 `business_system_candidate` 的 `item_ref`。
 4. 用 `collect --source-run-id ... --source-item-ref ... --time-context ...` 生成 Core Evidence Run。
 5. 先读 `manifest.json`，再读 `identity.json`、`topology.json`、`performance.json`、`candidates.json`。
+   - `PARTIAL` Run 仍是可审计结果；逐个读取 Artifact status 和 `coverage.json`，不要丢弃成功证据。
+   - `FAILED` Artifact 表示该 step 已尝试并有 raw response/error 支撑；`EMPTY` 才表示成功查询后的无数据。
 6. 如需本地排序或筛选，使用 `inspect candidates all/top/filter`。
 7. 只从 Evidence Item 的 `available_actions` 中 exact 选择 Action。
 8. 用 `investigate --source-run-id ... --source-item-ref ... --action ...` 生成 Child Run。
@@ -45,7 +47,9 @@ raw/*.json
 
 当前 Runtime Stable Surface：
 
-- `investigate_trace`：从 Candidate Item 的 `actionId` 读取 Trace Detail。
-- `inspect_call_tree`：从 Trace Item 的 `actionGuid + traceId` 读取 Call Tree。
+- `investigate_trace`：只从具备 `bizSystemId`、`applicationId`、`actionId`、`requestType` 的 Candidate Item 读取 Trace Detail。
+- `inspect_call_tree`：只从具备 `bizSystemId`、`applicationId`、`actionGuid`、`traceId` 的 Trace Item 读取 Call Tree。
 
 SQL、Stack、Logs、NoSQL、MQ 等保留在研究协议中；未进入 Runtime Stable Surface 前不要调用。
+
+即使旧 Run 中某个 Item 手工包含 `available_actions`，`investigate` 仍会在发起 HTTP 前重新校验 action-specific wire identity；不完整则生成 `BLOCKED / ACTION_IDENTITY_INCOMPLETE`，且 `live_request_count = 0`。

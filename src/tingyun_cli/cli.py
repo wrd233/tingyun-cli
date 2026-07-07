@@ -70,13 +70,32 @@ def main(argv=None) -> int:
         )
     elif args.command == "inspect":
         run_path = store.run_path(args.run_id)
-        if args.mode == "all":
-            result = inspect_candidates_all(run_path)
-        elif args.mode == "top":
-            result = inspect_candidates_top(run_path, metric=args.metric, limit=args.limit)
-        else:
-            result = inspect_candidates_filter(run_path, metric=args.metric, operator=args.operator, value=args.value)
+        try:
+            if args.mode == "all":
+                result = inspect_candidates_all(run_path)
+            elif args.mode == "top":
+                result = inspect_candidates_top(run_path, metric=args.metric, limit=args.limit)
+            else:
+                result = inspect_candidates_filter(run_path, metric=args.metric, operator=args.operator, value=args.value)
+        except ValueError as exc:
+            result = {
+                "schema_version": 1,
+                "command": "inspect",
+                "status": "LOCAL_ERROR",
+                "reason_code": _inspect_reason_code(str(exc)),
+                "message": str(exc),
+            }
     else:
         result = export_sanitized_run(store, args.run_id, args.output)
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0
+
+
+def _inspect_reason_code(message: str) -> str:
+    if message.startswith("unavailable metric:"):
+        return "UNAVAILABLE_METRIC"
+    if message.startswith("unsupported metric:"):
+        return "UNSUPPORTED_METRIC"
+    if message.startswith("unsupported operator:"):
+        return "UNSUPPORTED_OPERATOR"
+    return "LOCAL_INSPECT_ERROR"

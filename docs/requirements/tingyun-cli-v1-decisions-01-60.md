@@ -1387,3 +1387,19 @@ discover
 > 不让 Agent 重新承担 Endpoint 与 Wire Contract 复杂度；  
 > 不让任何真实调查因为异常中断而凭空消失；  
 > 不为了未来可能的扩展，提前建设大而全的框架。
+
+---
+
+# 2026-07-07 实现澄清：Runtime Contract Hardening
+
+这些澄清不新增决策编号，也不改变 60 项决策的范围：
+
+- `SUCCESS / EMPTY / FAILED / BLOCKED / SKIPPED` 保持原语义；实现上明确把 HTTP/transport/business failure 归为 `FAILED`，只把成功无域数据归为 `EMPTY`。
+- `PARTIAL` 表示 Run 已 finalized 且至少一个 required Artifact 失败或阻断；成功 sibling Artifact 必须保留。
+- `live_request_count` 是实际 raw request attempt 数。
+- retry 只覆盖网络瞬态异常与 HTTP 502/503/504；HTTP 500 默认不自动重试。
+- Auth Recovery 是 Run-scoped，每个 Live Run 最多一次。
+- `derived_from` 必须指向最终支撑 raw response/error；retry/auth replay 不能继续指向早先失败 attempt。
+- `available_actions` 的 exact identity 门槛在生成 Evidence Item 和执行 `investigate` 前都要校验。
+- Verified URL 只允许 `LIVE_OBSERVED` 或 `DERIVED_FROM_VERIFIED_ROUTE`，当前 Runtime 只派生已验证 action overview route。
+- 本轮后项目状态为 `Runtime-contract-hardened` / `v1 Runtime Candidate`，不是 Live-Proven。

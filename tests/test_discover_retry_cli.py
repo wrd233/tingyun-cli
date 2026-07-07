@@ -78,9 +78,11 @@ def test_executor_retries_transient_failure_once_and_audits_both_attempts(tmp_pa
         clock=FakeClock(),
     )
 
-    response = executor.execute({"method": "POST", "path": "/server-api/graph/query/overview", "body": {}, "body_kind": "json"})
+    result = executor.execute({"method": "POST", "path": "/server-api/graph/query/overview", "body": {}, "body_kind": "json"})
 
-    assert response["status"] == 200
+    assert result.response["status"] == 200
+    assert result.final_response_ref == "raw/response-0002.json"
+    assert result.attempt_count == 2
     assert len(transport.requests) == 2
     assert (run.path / "raw" / "request-0001.json").exists()
     assert (run.path / "raw" / "error-0001.json").exists()
@@ -104,9 +106,11 @@ def test_executor_auth_recovery_replays_same_read_request_once(tmp_path):
     )
     request = {"method": "POST", "path": "/server-api/graph/query/overview", "body": {"metric": "request_overview"}, "body_kind": "json"}
 
-    response = executor.execute(request)
+    result = executor.execute(request)
 
-    assert response["status"] == 200
+    assert result.response["status"] == 200
+    assert result.final_response_ref == "raw/response-0002.json"
+    assert result.auth_recovered is True
     assert transport.recoveries == 1
     assert transport.requests == [request, request]
 

@@ -6,9 +6,9 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .candidates import normalize_candidates
+from .candidates import is_inspect_call_tree_eligible, is_investigate_trace_eligible, normalize_candidates
 from .config import Config
-from .http import HttpExecutor
+from .http import ExecutionResult, HttpExecutor
 from .storage import RunStore
 from .time_context import resolve_time_context
 
@@ -39,22 +39,27 @@ def run_collect(
     transport=None,
     clock=None,
 ) -> Dict[str, Any]:
+    requested_intent = {
+        "source_run_id": source_run_id,
+        "source_item_ref": source_item_ref,
+        "time_context": time_context_value,
+    }
     if not store.acquire_live_lock():
-        return _blocked_run(store, "collect", "COLLECT", "LIVE_EXECUTION_BUSY")
+        return _blocked_run(store, "collect", "COLLECT", "LIVE_EXECUTION_BUSY", requested_intent=requested_intent)
     try:
         try:
             source = _resolve_source(store, source_run_id, source_item_ref)
         except (FileNotFoundError, KeyError):
-            return _blocked_run(store, "collect", "COLLECT", "INVALID_SOURCE_REF")
+            return _blocked_run(store, "collect", "COLLECT", "INVALID_SOURCE_REF", requested_intent=requested_intent)
         if source["kind"] != "business_system_candidate":
-            return _blocked_run(store, "collect", "COLLECT", "INVALID_SOURCE_KIND")
+            return _blocked_run(store, "collect", "COLLECT", "INVALID_SOURCE_KIND", requested_intent=requested_intent)
         try:
             time_context = resolve_time_context(time_context_value, clock or __import__("time"))
         except ValueError:
-            return _blocked_run(store, "collect", "COLLECT", "UNSUPPORTED_TIME_SHAPE")
+            return _blocked_run(store, "collect", "COLLECT", "UNSUPPORTED_TIME_SHAPE", requested_intent=requested_intent)
         biz_system_id = source.get("wire_identity", {}).get("bizSystemId")
         if not biz_system_id:
-            return _blocked_run(store, "collect", "COLLECT", "MISSING_WIRE_IDENTITY")
+            return _blocked_run(store, "collect", "COLLECT", "MISSING_WIRE_IDENTITY", requested_intent=requested_intent)
 
         run = store.begin_run(command="collect", run_type="COLLECT")
         preflight = {
@@ -67,15 +72,16 @@ def run_collect(
             "recipe": "core_collect",
             "safety": {"result": "ALLOW_READ_ONLY"},
             "expected_live_request_count": 3,
+            "requested_intent": requested_intent,
         }
         store.write_json(run.path / "preflight.json", preflight)
         executor = HttpExecutor(store=store, run=run, config=config, transport=transport, clock=clock or __import__("time"))
         scope = {"bizSystemId": biz_system_id}
-        topology_response = executor.execute(_topology_request(biz_system_id, time_context))
-        performance_response = executor.execute(_performance_request(biz_system_id, time_context))
-        candidates_response = executor.execute(_candidate_request(biz_system_id, time_context))
+        topology_result = executor.execute(_topology_request(biz_system_id, time_context))
+        performance_result = executor.execute(_performance_request(biz_system_id, time_context))
+        candidates_result = executor.execute(_candidate_request(biz_system_id, time_context))
 
-        artifacts = _collect_artifacts(source, source_run_id, scope, time_context, topology_response, performance_response, candidates_response)
+        artifacts = _collect_artifacts(source, source_run_id, scope, time_context, topology_result, performance_result, candidates_result)
         for filename, artifact in artifacts.items():
             store.write_json(run.path / "evidence" / filename, artifact)
         coverage = _coverage_from_artifacts(artifacts)
@@ -104,7 +110,7 @@ def run_discover(
     clock=None,
 ) -> Dict[str, Any]:
     if not store.acquire_live_lock():
-        return _blocked_run(store, "discover", "DISCOVERY", "LIVE_EXECUTION_BUSY")
+        return _blocked_run(store, "discover", "DISCOVERY", "LIVE_EXECUTION_BUSY", requested_intent={"query": query})
     try:
         time_context = resolve_time_context("last_60m", clock or __import__("time"))
         run = store.begin_run(command="discover", run_type="DISCOVERY")
@@ -117,8 +123,8 @@ def run_discover(
             "expected_live_request_count": 1,
         })
         executor = HttpExecutor(store=store, run=run, config=config, transport=transport, clock=clock or __import__("time"))
-        response = executor.execute(_business_tree_request(time_context))
-        artifact = _targets_artifact(response, query, time_context)
+        result = executor.execute(_business_tree_request(time_context))
+        artifact = _targets_artifact(result, query, time_context)
         artifacts = {"targets.json": artifact}
         store.write_json(run.path / "evidence" / "targets.json", artifact)
         coverage = _coverage_from_artifacts(artifacts)
@@ -148,17 +154,24 @@ def run_investigate(
     transport=None,
     clock=None,
 ) -> Dict[str, Any]:
+    requested_intent = {
+        "source_run_id": source_run_id,
+        "source_item_ref": source_item_ref,
+        "action": action,
+    }
     if not store.acquire_live_lock():
-        return _blocked_run(store, "investigate", "INVESTIGATION", "LIVE_EXECUTION_BUSY")
+        return _blocked_run(store, "investigate", "INVESTIGATION", "LIVE_EXECUTION_BUSY", requested_intent=requested_intent)
     try:
         try:
             source = _resolve_source(store, source_run_id, source_item_ref)
         except (FileNotFoundError, KeyError):
-            return _blocked_run(store, "investigate", "INVESTIGATION", "INVALID_SOURCE_REF")
+            return _blocked_run(store, "investigate", "INVESTIGATION", "INVALID_SOURCE_REF", requested_intent=requested_intent)
         if action not in source.get("available_actions", []):
-            return _blocked_run(store, "investigate", "INVESTIGATION", "INVALID_ACTION")
+            return _blocked_run(store, "investigate", "INVESTIGATION", "INVALID_ACTION", requested_intent=requested_intent)
         if action not in {"investigate_trace", "inspect_call_tree"}:
-            return _blocked_run(store, "investigate", "INVESTIGATION", "ACTION_NOT_STABLE")
+            return _blocked_run(store, "investigate", "INVESTIGATION", "ACTION_NOT_STABLE", requested_intent=requested_intent)
+        if not _action_identity_complete(source, action):
+            return _blocked_run(store, "investigate", "INVESTIGATION", "ACTION_IDENTITY_INCOMPLETE", requested_intent=requested_intent)
 
         source_manifest = _read_manifest(store, source_run_id)
         time_context = source_manifest.get("time_context") or resolve_time_context("last_30m", clock or __import__("time"))
@@ -171,16 +184,17 @@ def run_investigate(
             "time_context": time_context,
             "safety": {"result": "ALLOW_READ_ONLY"},
             "expected_live_request_count": 1,
+            "requested_intent": requested_intent,
         })
         executor = HttpExecutor(store=store, run=run, config=config, transport=transport, clock=clock or __import__("time"))
         if action == "investigate_trace":
-            response = executor.execute(_trace_detail_request(source, time_context))
+            result = executor.execute(_trace_detail_request(source, time_context))
             artifact_name = "trace.json"
-            artifact = _trace_artifact(response, source, source_run_id, time_context)
+            artifact = _trace_artifact(result, source, source_run_id, time_context)
         else:
-            response = executor.execute(_call_tree_request(source, time_context))
+            result = executor.execute(_call_tree_request(source, time_context))
             artifact_name = "call_tree.json"
-            artifact = _call_tree_artifact(response, source, source_run_id, time_context)
+            artifact = _call_tree_artifact(result, source, source_run_id, time_context)
         artifacts = {artifact_name: artifact}
         store.write_json(run.path / "evidence" / artifact_name, artifact)
         coverage = _coverage_from_artifacts(artifacts)
@@ -222,15 +236,25 @@ class Blocked(Exception):
     pass
 
 
-def _blocked_run(store: RunStore, command: str, run_type: str, reason_code: str) -> Dict[str, Any]:
+def _blocked_run(
+    store: RunStore,
+    command: str,
+    run_type: str,
+    reason_code: str,
+    *,
+    requested_intent: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     run = store.begin_run(command=command, run_type=run_type)
-    store.write_json(run.path / "preflight.json", {
+    preflight = {
         "schema_version": 1,
         "command": command,
         "result": "BLOCKED",
         "reason_code": reason_code,
         "live_request_count": 0,
-    })
+    }
+    if requested_intent:
+        preflight["requested_intent"] = requested_intent
+    store.write_json(run.path / "preflight.json", preflight)
     coverage = {"schema_version": 1, "overall": "BLOCKED", "artifacts": {}, "reason_code": reason_code}
     manifest = {
         "schema_version": 1,
@@ -242,6 +266,8 @@ def _blocked_run(store: RunStore, command: str, run_type: str, reason_code: str)
         "coverage_ref": "coverage.json",
         "live_request_count": 0,
     }
+    if requested_intent:
+        manifest["requested_intent"] = requested_intent
     path = store.finalize_run(run, manifest=manifest, coverage=coverage)
     receipt = _receipt(command, "BLOCKED", run.run_id, path / "manifest.json")
     receipt["reason_code"] = reason_code
@@ -327,10 +353,17 @@ def _candidate_request(biz_system_id: str, time_context: Dict[str, Any]) -> Dict
                 "requestType",
                 "applicationName",
                 "responseP50",
+                "responseP75",
+                "responseP95",
+                "responseP99",
+                "responseTimeMillisecondAvg",
                 "throughput",
                 "totalCount",
                 "errorRate",
+                "errorTotalCount",
                 "slowCount",
+                "exceptionCountTotal",
+                "apdex",
                 "option",
             ],
             "zoomTime": False,
@@ -368,7 +401,7 @@ def _trace_detail_request(source: Dict[str, Any], time_context: Dict[str, Any]) 
             "bizSystemId": identity.get("bizSystemId"),
             "applicationId": identity.get("applicationId"),
             "actionId": identity.get("actionId"),
-            "actionType": identity.get("requestType"),
+            "actionType": identity.get("requestType") or identity.get("actionType"),
             "timePeriod": str(endpoint["timePeriod"]),
             "endTime": endpoint["endTime"],
             "lang": "zh_CN",
@@ -390,7 +423,7 @@ def _call_tree_request(source: Dict[str, Any], time_context: Dict[str, Any]) -> 
             "actionGuid": identity.get("actionGuid"),
             "traceId": identity.get("traceId"),
             "actionId": identity.get("actionId"),
-            "actionType": identity.get("actionType"),
+            "actionType": identity.get("actionType") or identity.get("requestType"),
             "timePeriod": str(endpoint["timePeriod"]),
             "endTime": endpoint["endTime"],
             "lang": "zh_CN",
@@ -398,7 +431,15 @@ def _call_tree_request(source: Dict[str, Any], time_context: Dict[str, Any]) -> 
     }
 
 
-def _collect_artifacts(source, source_run_id, scope, time_context, topology_response, performance_response, candidates_response):
+def _collect_artifacts(
+    source,
+    source_run_id,
+    scope,
+    time_context,
+    topology_result: ExecutionResult,
+    performance_result: ExecutionResult,
+    candidates_result: ExecutionResult,
+):
     return {
         "identity.json": {
             "schema_version": 1,
@@ -409,26 +450,24 @@ def _collect_artifacts(source, source_run_id, scope, time_context, topology_resp
             "derived_from": [],
             "data": {"source_item": source, "wire_identity": source.get("wire_identity", {})},
         },
-        "topology.json": _topology_artifact(topology_response, scope, time_context),
-        "performance.json": _performance_artifact(performance_response, scope, time_context),
-        "candidates.json": normalize_candidates(
-            response=candidates_response,
-            source_run_id=source_run_id,
-            scope=scope,
-            time_context=time_context,
-            raw_ref="raw/response-0003.json",
-        ),
+        "topology.json": _topology_artifact(topology_result, scope, time_context),
+        "performance.json": _performance_artifact(performance_result, scope, time_context),
+        "candidates.json": _candidates_artifact(candidates_result, source_run_id, scope, time_context),
     }
 
 
-def _targets_artifact(response: Dict[str, Any], query: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
+def _targets_artifact(result: ExecutionResult, query: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
+    if result.outcome == "FAILED":
+        return _failed_artifact("targets", None, time_context, result, data={"query": query, "items": []})
+    response = result.response or {}
     candidates = _business_candidates(response.get("data", []), query=query)
     return {
         "schema_version": 1,
         "kind": "targets",
         "status": "SUCCESS" if candidates else "EMPTY",
         "time_context": time_context,
-        "derived_from": ["raw/response-0001.json"],
+        "derived_from": _derived_from(result),
+        "execution": _execution_metadata(result),
         "data": {"query": query, "items": candidates},
     }
 
@@ -461,7 +500,10 @@ def _business_candidates(value: Any, *, query: str) -> List[Dict[str, Any]]:
     return items
 
 
-def _topology_artifact(response: Dict[str, Any], scope: Dict[str, Any], time_context: Dict[str, Any]) -> Dict[str, Any]:
+def _topology_artifact(result: ExecutionResult, scope: Dict[str, Any], time_context: Dict[str, Any]) -> Dict[str, Any]:
+    if result.outcome == "FAILED":
+        return _failed_artifact("topology", scope, time_context, result, data={"structural_nodes": [], "runtime_edges": []})
+    response = result.response or {}
     data = response.get("data") if isinstance(response.get("data"), dict) else {}
     nodes = data.get("nodes") or data.get("nodeList") or []
     edges = data.get("edges") or data.get("lines") or []
@@ -471,12 +513,16 @@ def _topology_artifact(response: Dict[str, Any], scope: Dict[str, Any], time_con
         "status": "SUCCESS" if nodes or edges else "EMPTY",
         "scope": scope,
         "time_context": time_context,
-        "derived_from": ["raw/response-0001.json"],
+        "derived_from": _derived_from(result),
+        "execution": _execution_metadata(result),
         "data": {"structural_nodes": nodes, "runtime_edges": edges},
     }
 
 
-def _performance_artifact(response: Dict[str, Any], scope: Dict[str, Any], time_context: Dict[str, Any]) -> Dict[str, Any]:
+def _performance_artifact(result: ExecutionResult, scope: Dict[str, Any], time_context: Dict[str, Any]) -> Dict[str, Any]:
+    if result.outcome == "FAILED":
+        return _failed_artifact("performance", scope, time_context, result, data={"metrics": {}})
+    response = result.response or {}
     data = response.get("data") if isinstance(response.get("data"), dict) else {}
     metrics = {
         "response_avg": {"semantic": "response_time", "aggregation": "average", "unit": "ms", "series": data.get("avg") or data.get("average") or []},
@@ -492,59 +538,217 @@ def _performance_artifact(response: Dict[str, Any], scope: Dict[str, Any], time_
         "status": "SUCCESS" if has_series else "EMPTY",
         "scope": scope,
         "time_context": time_context,
-        "derived_from": ["raw/response-0002.json"],
+        "derived_from": _derived_from(result),
+        "execution": _execution_metadata(result),
         "data": {"metrics": metrics},
     }
 
 
-def _trace_artifact(response: Dict[str, Any], source: Dict[str, Any], source_run_id: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
+def _candidates_artifact(result: ExecutionResult, source_run_id: str, scope: Dict[str, Any], time_context: Dict[str, Any]) -> Dict[str, Any]:
+    if result.outcome == "FAILED":
+        return _failed_artifact("candidates", scope, time_context, result, data={"items": [], "row_count": 0})
+    artifact = normalize_candidates(
+        response=result.response or {},
+        source_run_id=source_run_id,
+        scope=scope,
+        time_context=time_context,
+        raw_ref=_final_ref(result),
+    )
+    artifact["execution"] = _execution_metadata(result)
+    return artifact
+
+
+def _trace_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_id: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
+    if result.outcome == "FAILED":
+        return _failed_artifact("trace", None, time_context, result, data={"items": []})
+    response = result.response or {}
     data = response.get("data") if isinstance(response.get("data"), dict) else {}
     nested = data.get("data") if isinstance(data.get("data"), dict) else {}
     identity = dict(source.get("wire_identity", {}))
+    for key in ("bizSystemId", "applicationId", "actionId", "actionType"):
+        if data.get(key) not in (None, ""):
+            identity[key] = data[key]
+    if identity.get("requestType") and not identity.get("actionType"):
+        identity["actionType"] = identity["requestType"]
     if data.get("actionGuid"):
         identity["actionGuid"] = data["actionGuid"]
-    trace_id = nested.get("id") or data.get("traceId")
+    trace_id = nested.get("id") or data.get("id") or data.get("traceId")
     if trace_id:
         identity["traceId"] = trace_id
+    summary = {k: data.get(k) for k in ("duration", "respTime", "actionName", "actionAlias", "applicationName", "bizSystemName") if k in data}
     item = {
         "item_ref": "item-0001",
         "kind": "trace",
         "source_run_id": source_run_id,
         "wire_identity": identity,
-        "source_refs": ["raw/response-0001.json"],
-        "summary": {k: data.get(k) for k in ("duration", "actionName", "applicationName") if k in data},
+        "source_refs": _derived_from(result),
+        "summary": summary,
     }
-    if identity.get("actionGuid") and identity.get("traceId"):
+    if is_inspect_call_tree_eligible(item):
         item["available_actions"] = ["inspect_call_tree"]
     return {
         "schema_version": 1,
         "kind": "trace",
         "status": "SUCCESS" if data else "EMPTY",
         "time_context": time_context,
-        "derived_from": ["raw/response-0001.json"],
-        "data": {"items": [item] if data else []},
+        "derived_from": _derived_from(result),
+        "execution": _execution_metadata(result),
+        "data": {
+            "summary": summary,
+            "timeline": data.get("timeLine") or {},
+            "trace_topology": data.get("topology") or {},
+            "service_flow": data.get("serviceFlow") or {},
+            "request_service_flow": data.get("requestServiceFlow") or {},
+            "exceptions": data.get("exceptions") or [],
+            "embedded_stack": _embedded_stack(data),
+            "context": _trace_context(data),
+            "items": [item] if data else [],
+        },
     }
 
 
-def _call_tree_artifact(response: Dict[str, Any], source: Dict[str, Any], source_run_id: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
+def _call_tree_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_id: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
+    if result.outcome == "FAILED":
+        return _failed_artifact("call_tree", None, time_context, result, data={"source_item": {"run_id": source_run_id, "item_ref": source.get("item_ref")}, "call_tree": {}})
+    response = result.response or {}
     data = response.get("data", {})
     return {
         "schema_version": 1,
         "kind": "call_tree",
         "status": "SUCCESS" if data else "EMPTY",
         "time_context": time_context,
-        "derived_from": ["raw/response-0001.json"],
+        "derived_from": _derived_from(result),
+        "execution": _execution_metadata(result),
         "data": {"source_item": {"run_id": source_run_id, "item_ref": source.get("item_ref")}, "call_tree": data},
     }
+
+
+def _failed_artifact(
+    kind: str,
+    scope: Optional[Dict[str, Any]],
+    time_context: Dict[str, Any],
+    result: ExecutionResult,
+    *,
+    data: Dict[str, Any],
+) -> Dict[str, Any]:
+    artifact: Dict[str, Any] = {
+        "schema_version": 1,
+        "kind": kind,
+        "status": "FAILED",
+        "time_context": time_context,
+        "derived_from": _derived_from(result),
+        "execution": _execution_metadata(result),
+        "error": _execution_error(result),
+        "data": data,
+    }
+    if scope is not None:
+        artifact["scope"] = scope
+    return artifact
+
+
+def _execution_metadata(result: ExecutionResult) -> Dict[str, Any]:
+    data = {
+        "outcome": result.outcome,
+        "attempt_count": result.attempt_count,
+        "attempt_refs": list(result.attempt_refs),
+        "transient_retried": result.transient_retried,
+        "auth_recovered": result.auth_recovered,
+    }
+    if result.reason_code:
+        data["reason_code"] = result.reason_code
+    if result.final_response_ref:
+        data["final_response_ref"] = result.final_response_ref
+    if result.final_error_ref:
+        data["final_error_ref"] = result.final_error_ref
+    return data
+
+
+def _execution_error(result: ExecutionResult) -> Dict[str, Any]:
+    error = {"reason_code": result.reason_code or "EXECUTION_FAILED"}
+    response = result.response or {}
+    status = response.get("transport_status", response.get("status"))
+    if status is not None:
+        error["status"] = status
+    message = response.get("message") or response.get("msg")
+    if message:
+        error["message"] = message
+    if result.final_error_ref:
+        error["raw_error_ref"] = result.final_error_ref
+    if result.final_response_ref:
+        error["raw_response_ref"] = result.final_response_ref
+    return error
+
+
+def _derived_from(result: ExecutionResult) -> List[str]:
+    ref = _final_ref(result)
+    return [ref] if ref else []
+
+
+def _final_ref(result: ExecutionResult) -> str:
+    return result.final_response_ref or result.final_error_ref or ""
+
+
+def _trace_context(data: Dict[str, Any]) -> Dict[str, Any]:
+    keys = (
+        "applicationName",
+        "bizSystemName",
+        "instanceId",
+        "instanceName",
+        "requestId",
+        "refId",
+        "actionType",
+    )
+    return {key: data.get(key) for key in keys if key in data}
+
+
+def _embedded_stack(data: Dict[str, Any]) -> Dict[str, Any]:
+    stacks: List[Any] = []
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, nested in value.items():
+                if key == "stack" and isinstance(nested, list):
+                    stacks.append(nested)
+                else:
+                    visit(nested)
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+
+    visit({"exceptions": data.get("exceptions"), "timeLine": data.get("timeLine")})
+    return {"source": "trace_detail_embedded", "stacks": stacks}
+
+
+def _action_identity_complete(source: Dict[str, Any], action: str) -> bool:
+    if action == "investigate_trace":
+        return is_investigate_trace_eligible(source)
+    if action == "inspect_call_tree":
+        return is_inspect_call_tree_eligible(source)
+    return False
 
 
 def _coverage_from_artifacts(artifacts: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     entries = {}
     for filename, artifact in artifacts.items():
         kind = filename.removesuffix(".json")
+        step = {
+            "capability": _capability_for_kind(kind),
+            "status": artifact["status"],
+            "evidence_refs": artifact.get("derived_from", []),
+        }
+        execution = artifact.get("execution")
+        if execution:
+            step.update({
+                "attempt_count": execution.get("attempt_count"),
+                "attempt_refs": execution.get("attempt_refs", []),
+                "transient_retried": execution.get("transient_retried", False),
+                "auth_recovered": execution.get("auth_recovered", False),
+            })
+            if execution.get("reason_code"):
+                step["reason_code"] = execution["reason_code"]
         entries[kind] = {
             "status": artifact["status"],
-            "steps": [{"capability": _capability_for_kind(kind), "status": artifact["status"], "evidence_refs": artifact.get("derived_from", [])}],
+            "steps": [step],
         }
     overall = _overall_from_statuses([artifact["status"] for artifact in artifacts.values()])
     return {"schema_version": 1, "overall": overall, "artifacts": entries}
@@ -612,7 +816,18 @@ def _receipt(command: str, status: str, run_id: str, manifest_path: Path) -> Dic
 
 def _sanitize(value: Any, *, root: Path) -> Any:
     secret_parts = ("authorization", "cookie", "token", "password", "secret")
-    identity_keys = {"wire_identity", "actionId", "actionGuid", "traceId", "bizSystemId", "applicationId", "systemId", "available_actions"}
+    identity_keys = {
+        "wire_identity",
+        "actionId",
+        "actionGuid",
+        "traceId",
+        "bizSystemId",
+        "applicationId",
+        "systemId",
+        "available_actions",
+        "links",
+        "url",
+    }
     if isinstance(value, dict):
         result = {}
         for key, nested in value.items():

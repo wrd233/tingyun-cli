@@ -34,8 +34,17 @@ BLOCKED / LIVE_EXECUTION_BUSY
 
 瞬时网络故障最多重试一次。所有 attempts 都有 Raw 记录。
 
-不重试 4xx、业务错误、EMPTY、参数错误或安全阻断。
+默认只重试：
+
+```text
+TimeoutError / ConnectionResetError / selected network OSError
+HTTP 502 / 503 / 504
+```
+
+不重试 4xx、HTTP 500、业务错误、EMPTY、参数错误或安全阻断。
 
 ## Auth Recovery
 
-运行期明确认证失效时最多恢复一次，并重放同一个只读请求一次。不会改变请求参数或冻结时间。
+每个 Live Run 最多一次 Auth Recovery，并重放同一个只读请求一次。不会改变请求参数或冻结时间。
+
+Auth Recovery 与 transient retry 分开记录；后续请求如果再次认证失效，会形成 `FAILED` Artifact，而不是再次恢复。

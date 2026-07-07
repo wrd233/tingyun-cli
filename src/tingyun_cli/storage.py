@@ -131,6 +131,7 @@ class RunStore:
                 "artifacts": {},
                 "reason_code": "STALE_INFLIGHT",
             }
+            raw_summary = self._raw_summary(path)
             manifest = {
                 "schema_version": 1,
                 "run_id": run.run_id,
@@ -139,8 +140,18 @@ class RunStore:
                 "reason_code": "STALE_INFLIGHT",
                 "artifacts": [],
                 "coverage_ref": "coverage.json",
-                "live_request_count": 0,
+                "live_request_count": raw_summary["request_count"],
+                "raw_summary": raw_summary,
             }
+            preflight_path = path / "preflight.json"
+            if preflight_path.exists():
+                preflight = self.read_json(preflight_path)
+                if isinstance(preflight.get("source"), dict):
+                    manifest["source"] = preflight["source"]
+                if preflight.get("action") is not None:
+                    manifest["action"] = preflight["action"]
+                if isinstance(preflight.get("time_context"), dict):
+                    manifest["time_context"] = preflight["time_context"]
             self.write_json(path / "coverage.json", coverage)
             self.write_json(path / "manifest.json", manifest)
             self.finalize_existing_inflight(run)
@@ -158,6 +169,16 @@ class RunStore:
         stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
         suffix = f"{time.time_ns() % 1_000_000_000:09d}"
         return f"run-{stamp}-{suffix}"
+
+    def _raw_summary(self, run_path: Path) -> Dict[str, int]:
+        raw_path = run_path / "raw"
+        if not raw_path.exists():
+            return {"request_count": 0, "response_count": 0, "error_count": 0}
+        return {
+            "request_count": len(list(raw_path.glob("request-*.json"))),
+            "response_count": len(list(raw_path.glob("response-*.json"))),
+            "error_count": len(list(raw_path.glob("error-*.json"))),
+        }
 
     def _now_iso(self) -> str:
         return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
