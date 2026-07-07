@@ -1,2 +1,7 @@
 .DS_Store
 /research/sources/live/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.tingyun-runs/

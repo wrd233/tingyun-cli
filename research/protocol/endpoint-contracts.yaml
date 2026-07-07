@@ -46022,6 +46022,99 @@
               "role": "representative_observed_request"
             }
           ]
+        },
+        {
+          "id": "variant_metric_request_overview",
+          "discriminant": "metric:request_overview;query:request_overview",
+          "observed_count": 4,
+          "query_keys": [
+            "lang",
+            "request_overview"
+          ],
+          "evidence": [
+            {
+              "session": "session-acce84d0-9163-41a5-b151-9bec4b904b5f",
+              "request_ref": "request-0465",
+              "request_body_ref": "evidence/requests/request-0465-request-add89bf5dc9c.json",
+              "response_body_ref": "evidence/responses/request-0465-response-4ab4bc382b51.json",
+              "role": "candidate_request_overview_819_rows"
+            },
+            {
+              "session": "session-acce84d0-9163-41a5-b151-9bec4b904b5f",
+              "request_ref": "request-0467",
+              "request_body_ref": "evidence/requests/request-0467-request-e5aefd88bfae.json",
+              "response_body_ref": "evidence/responses/request-0467-response-ea562417ace6.json",
+              "role": "candidate_request_overview_862_rows"
+            },
+            {
+              "session": "session-acce84d0-9163-41a5-b151-9bec4b904b5f",
+              "request_ref": "request-0474",
+              "request_body_ref": "evidence/requests/request-0474-request-5cc80e8ec782.json",
+              "response_body_ref": "evidence/responses/request-0474-response-b1c7cb591217.json",
+              "role": "candidate_request_overview_1000_row_boundary"
+            },
+            {
+              "session": "session-acce84d0-9163-41a5-b151-9bec4b904b5f",
+              "request_ref": "request-0479",
+              "request_body_ref": "evidence/requests/request-0479-request-2960a2b43ec9.json",
+              "response_body_ref": "evidence/responses/request-0479-response-59953adaeab8.json",
+              "role": "candidate_request_overview_systemIds_scope_1000_row_boundary"
+            }
+          ],
+          "request_shape_summary": {
+            "body_kind": "json",
+            "required_observed_fields": [
+              "endTime",
+              "timePeriod",
+              "metric",
+              "autoMetrics",
+              "zoomTime",
+              "labels",
+              "lang"
+            ],
+            "metric_value": "request_overview",
+            "observed_label_keys": [
+              "actionTypes",
+              "systemIds"
+            ],
+            "runtime_v1_scope_mapping": "business system scope uses labels.systemIds[] from discovered bizSystemId"
+          },
+          "response_shape_summary": {
+            "data": "array",
+            "row_count_observed": [
+              819,
+              862,
+              1000,
+              1000
+            ],
+            "row_fields": [
+              "applicationId",
+              "actionId",
+              "actionName",
+              "applicationName",
+              "apdex",
+              "responseP50",
+              "responseP75",
+              "responseP95",
+              "responseP99",
+              "responseTimeMillisecondAvg",
+              "throughput",
+              "totalCount",
+              "errorRate",
+              "errorTotalCount",
+              "slowCount",
+              "exceptionCountTotal",
+              "requestType",
+              "systemId",
+              "follow"
+            ],
+            "identity_fields": [
+              "actionId",
+              "applicationId",
+              "systemId"
+            ],
+            "boundary": "1000 observed rows is a boundary observation, not proof of FULL completeness"
+          }
         }
       ],
       "request": {
@@ -46081,6 +46174,13 @@
               "string"
             ],
             "occurrences": 3
+          },
+          {
+            "name": "request_overview",
+            "observed_types": [
+              "string"
+            ],
+            "occurrences": 4
           }
         ],
         "body_parameters": [
@@ -46153,6 +46253,13 @@
               "boolean"
             ],
             "occurrences": 203
+          },
+          {
+            "name": "autoMetrics",
+            "observed_types": [
+              "array"
+            ],
+            "occurrences": 4
           }
         ],
         "json_body_fields": [
@@ -46337,6 +46444,24 @@
             "types": [
               "boolean"
             ]
+          },
+          {
+            "path": "autoMetrics",
+            "types": [
+              "array"
+            ]
+          },
+          {
+            "path": "labels.systemIds[]",
+            "types": [
+              "string"
+            ]
+          },
+          {
+            "path": "labels.actionTypes[]",
+            "types": [
+              "string"
+            ]
           }
         ],
         "body_kinds": {
@@ -46425,11 +46550,167 @@
             "types": [
               "integer"
             ]
+          },
+          {
+            "path": "data[]",
+            "types": [
+              "object"
+            ]
+          },
+          {
+            "path": "data[].applicationId",
+            "types": [
+              "integer"
+            ]
+          },
+          {
+            "path": "data[].actionId",
+            "types": [
+              "integer",
+              "string"
+            ]
+          },
+          {
+            "path": "data[].actionName",
+            "types": [
+              "string"
+            ]
+          },
+          {
+            "path": "data[].applicationName",
+            "types": [
+              "string"
+            ]
+          },
+          {
+            "path": "data[].apdex",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].responseP50",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].responseP75",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].responseP95",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].responseP99",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].responseTimeMillisecondAvg",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].throughput",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].totalCount",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].errorRate",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].errorTotalCount",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].slowCount",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].exceptionCountTotal",
+            "types": [
+              "integer",
+              "number"
+            ]
+          },
+          {
+            "path": "data[].requestType",
+            "types": [
+              "string"
+            ]
+          },
+          {
+            "path": "data[].systemId",
+            "types": [
+              "integer",
+              "string"
+            ]
           }
         ],
         "business_success_observed": true
       },
-      "normalized_mapping": [],
+      "normalized_mapping": [
+        {
+          "variant": "variant_metric_request_overview",
+          "artifact": "candidates.json",
+          "source_format": "json",
+          "stable_fields": {
+            "actionId": "wire_identity.actionId",
+            "applicationId": "wire_identity.applicationId",
+            "systemId": "wire_identity.systemId",
+            "actionName": "name",
+            "applicationName": "labels.applicationName",
+            "requestType": "labels.requestType",
+            "responseTimeMillisecondAvg": "metrics.response_avg.ms",
+            "responseP50": "metrics.p50.ms",
+            "responseP75": "metrics.p75.ms",
+            "responseP95": "metrics.p95.ms",
+            "responseP99": "metrics.p99.ms",
+            "throughput": "metrics.throughput.per_second",
+            "totalCount": "metrics.total_count.count",
+            "errorRate": "metrics.error_rate.ratio",
+            "errorTotalCount": "metrics.error_count.count",
+            "slowCount": "metrics.slow_count.count",
+            "exceptionCountTotal": "metrics.exception_count.count",
+            "apdex": "metrics.apdex.score"
+          },
+          "completeness_rule": "Only mark FULL with explicit proof; observed 1000 rows remains BOUNDED/UNKNOWN and is not total proof.",
+          "runtime_role": "Primary Stable Candidate Source for v1; no Export/List runtime fallback."
+        }
+      ],
       "pagination": {
         "observed_parameters": []
       },
@@ -46450,7 +46731,8 @@
           "metric",
           "order",
           "page",
-          "zoomTime"
+          "zoomTime",
+          "request_overview"
         ]
       },
       "time_parameters": {
@@ -46487,6 +46769,30 @@
           "request_ref": "request-0574",
           "request_body_ref": "evidence/requests/request-0574-request-1ecb2815c3d0.json",
           "response_body_ref": "evidence/responses/request-0574-response-0bf70f9dcf49.json"
+        },
+        {
+          "session": "session-acce84d0-9163-41a5-b151-9bec4b904b5f",
+          "request_ref": "request-0465",
+          "request_body_ref": "evidence/requests/request-0465-request-add89bf5dc9c.json",
+          "response_body_ref": "evidence/responses/request-0465-response-4ab4bc382b51.json"
+        },
+        {
+          "session": "session-acce84d0-9163-41a5-b151-9bec4b904b5f",
+          "request_ref": "request-0467",
+          "request_body_ref": "evidence/requests/request-0467-request-e5aefd88bfae.json",
+          "response_body_ref": "evidence/responses/request-0467-response-ea562417ace6.json"
+        },
+        {
+          "session": "session-acce84d0-9163-41a5-b151-9bec4b904b5f",
+          "request_ref": "request-0474",
+          "request_body_ref": "evidence/requests/request-0474-request-5cc80e8ec782.json",
+          "response_body_ref": "evidence/responses/request-0474-response-b1c7cb591217.json"
+        },
+        {
+          "session": "session-acce84d0-9163-41a5-b151-9bec4b904b5f",
+          "request_ref": "request-0479",
+          "request_body_ref": "evidence/requests/request-0479-request-2960a2b43ec9.json",
+          "response_body_ref": "evidence/responses/request-0479-response-59953adaeab8.json"
         }
       ]
     },

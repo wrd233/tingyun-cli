@@ -90,6 +90,26 @@
       "verification": "VERIFIED"
     },
     {
+      "id": "list_request_overview_candidates",
+      "title": "request_overview Candidate Dataset 读取",
+      "inputs": [
+        "bizSystemId from discovered business system",
+        "single explicit time_context",
+        "request_overview JSON request shape"
+      ],
+      "outputs": [
+        "candidate dataset rows",
+        "actionId/applicationId/systemId wire identity",
+        "response/P50/P75/P95/P99/throughput/count/error/slow/exception metrics",
+        "row_count and conservative completeness boundary"
+      ],
+      "uses": [
+        "ep_post_server_api_graph_query_overview"
+      ],
+      "semantic": "POST /server-api/graph/query/overview?request_overview 是 v1 Primary Stable Candidate Source。真实 Session 中多组同 scope/time List API 与 Export 对照候选集合和行数高度一致；List API 额外保留 actionId/applicationId 等继续调查身份。返回恰好 1000 行只证明观察到边界，不证明 FULL。",
+      "verification": "VERIFIED"
+    },
+    {
       "id": "list_recent_requests",
       "title": "近期 Action / 请求摘要排名",
       "inputs": [
@@ -482,6 +502,10 @@
           "required": true
         },
         {
+          "capability": "list_request_overview_candidates",
+          "required": true
+        },
+        {
           "capability": "list_recent_requests",
           "required": true
         },
@@ -507,7 +531,8 @@
         "只在分页响应提供下一页或 total/page 条件时继续翻页",
         "发现真实 dependency type 才读取对应 dependency 能力",
         "服务接口和组件操作作为可选扩展读取；未验证能力只记录 gap，不补链路",
-        "list_transactions/actionItemList 仅在已有验证来源的 actionId 时执行；冷启动 actionId 来源未证明时跳过并记录 gap_runtime_to_trace_list。"
+        "list_transactions/actionItemList 仅在已有验证来源的 actionId 时执行；冷启动 actionId 来源未证明时跳过并记录 gap_runtime_to_trace_list。",
+        "Candidate Dataset 固定使用 request_overview List API；Export/Download 只作为研究验证或未来 file-native source，不作为 Runtime fallback。"
       ]
     },
     {

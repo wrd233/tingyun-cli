@@ -39,7 +39,9 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 
 ### 性能与运行指标
 
-核心 Metric 保留最小统计身份：`scope`、`semantic`、`aggregation`、`unit`、`time_context`、`shape`。导出文件证明用户可见统计语义，例如 P50/P75/P95/P99、吞吐率、请求数、错误率、慢次数、异常次数，但不反推 Wire 字段或排序参数。运行对象清单不再合并为单一 Capability：近期请求统计、事务、服务接口、外部调用和组件操作分别按真实 Endpoint 边界建模。`application/charts/response` 的 business-system scope shape 已由 live run `20260707-0400-micro-shape-scope-validation` 确认：`businessType="BIZ_SYSTEM"` 可返回响应时间、P50、P80、P95、P99 五组 ms series；该结论不证明 `businessType` 可省略，也不外推到 application scope 或其他 chart endpoint。
+核心 Metric 保留最小统计身份：`scope`、`semantic`、`aggregation`、`unit`、`time_context`、`shape`。导出文件证明用户可见统计语义，例如 P50/P75/P95/P99、吞吐率、请求数、错误率、慢次数、异常次数，但不反推 Wire 字段或排序参数。运行对象清单不再合并为单一 Capability：近期请求统计、事务、服务接口、外部调用、组件操作和 v1 Candidate Dataset 分别按真实 Endpoint 边界建模。`application/charts/response` 的 business-system scope shape 已由 live run `20260707-0400-micro-shape-scope-validation` 确认：`businessType="BIZ_SYSTEM"` 可返回响应时间、P50、P80、P95、P99 五组 ms series；该结论不证明 `businessType` 可省略，也不外推到 application scope 或其他 chart endpoint。
+
+Candidate Dataset 的 Primary Stable Source 已确定为 `POST /server-api/graph/query/overview?request_overview`。真实 Session `session-acce84d0-9163-41a5-b151-9bec4b904b5f` 中四组 request_overview List API 返回 819、862、1000、1000 行，字段包含 `actionId`、`applicationId`、`systemId`、`actionName`、`applicationName`、P50/P75/P95/P99、平均响应、吞吐、请求数、错误、慢请求和异常计数。对应 Export 只保留展示字段和指标，不能保留完整执行身份，因此 v1 Runtime 不再把 Export/Download 作为 Candidate fallback。返回 1000 行只记录为已观察边界，不证明全量。
 
 ### 问题溯源
 
@@ -74,6 +76,7 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 | 性能与运行指标 | 概览 | VERIFIED | `read_application_overview` | `scan_business_system` | `` |
 | 性能与运行指标 | 时间趋势 | VERIFIED | `read_performance_timeseries` | `scan_business_system` | `` |
 | 性能与运行指标 | 分位值 | VERIFIED | `read_performance_timeseries` | `scan_business_system` | `` |
+| 性能与运行指标 | Candidate Dataset | VERIFIED | `list_request_overview_candidates` | `scan_business_system` | `` |
 | 性能与运行指标 | Top / Ranking | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
 | 性能与运行指标 | 请求统计清单 | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
 | 性能与运行指标 | Business-System Response Time Series | VERIFIED | `read_performance_timeseries` | `scan_business_system` | `` |

@@ -2,6 +2,8 @@
 
 本文件只记录未解决问题、冲突和未来 validation task。所有未知连接保留为 Gap，不在协议中补全。
 
+Resolved note: Candidate Dataset Source Gate 已由真实 Session 证据关闭。v1 Primary Stable Candidate Source 是 `POST /server-api/graph/query/overview?request_overview`；Export / Download 保留为研究验证来源和未来 File-native Evidence Source，不作为 Runtime fallback。返回恰好 1000 行仍然不是 `FULL` 证明。
+
 ## gap_service_group_identity: 服务组身份未由 Session 深度证明
 
 - 已知事实：官方/页面语义出现服务组/分组概念，Session 中主要证明业务系统、应用、实例和调用边。
@@ -219,7 +221,7 @@ validation task:
 
 - 已知事实：导出含 P99、吞吐率、错误率等列。
 - 缺失证据：没有对应 `sortField/filter` 请求证据。
-- 对能力影响：normalized_mapping 只标 display_only。
+- 对能力影响：导出列仍不能反推服务端排序/过滤参数；这不影响 request_overview List API 作为 v1 Candidate Dataset 主来源。
 - 下一次 Capture 要补什么：在 UI 中对 P99/错误率排序或过滤并抓取请求。
 - 成功判定条件：观察到真实 sort/filter 参数与响应顺序变化。
 - 禁止假设：不得根据 CSV 列名猜 `sortField=p99`。

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tingyun-cli"
+version = "0.1.0"
+description = "Agent-first immutable evidence package CLI for Tingyun APM investigation."
+requires-python = ">=3.9"
+
+[project.scripts]
+tingyun = "tingyun_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
