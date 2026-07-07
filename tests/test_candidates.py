@@ -150,14 +150,18 @@ def test_error_rate_percent_value_matches_wire():
 def test_investigate_trace_eligible_only_for_proven_request_types():
     web_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "WEB"}}
     tx_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "TX"}}
-    composite_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "TX,IF"}}
     bg_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "BG"}}
+    composite_tx_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "TX,IF"}}
+    unknown_composite = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "XX,YY"}}
+    unknown_single = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "ZZ"}}
     incomplete_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10}}
 
     assert is_investigate_trace_eligible(web_item) is True
     assert is_investigate_trace_eligible(tx_item) is True
-    assert is_investigate_trace_eligible(composite_item) is False
-    assert is_investigate_trace_eligible(bg_item) is False
+    assert is_investigate_trace_eligible(bg_item) is True
+    assert is_investigate_trace_eligible(composite_tx_item) is True  # TX is proven, split works
+    assert is_investigate_trace_eligible(unknown_composite) is False  # no proven type in parts
+    assert is_investigate_trace_eligible(unknown_single) is False
     assert is_investigate_trace_eligible(incomplete_item) is False
 
 
@@ -177,7 +181,7 @@ def test_candidate_with_proven_request_type_gets_available_actions():
     assert item["navigation"]["status"] == "SUCCESS"
 
 
-def test_candidate_with_composite_request_type_has_no_actions_or_links():
+def test_candidate_with_composite_tx_type_gets_actions():
     row = _row(1)
     row["requestType"] = "TX,IF"
     artifact = normalize_candidates(
@@ -188,14 +192,30 @@ def test_candidate_with_composite_request_type_has_no_actions_or_links():
         raw_ref="raw/response-0003.json",
     )
     item = artifact["data"]["items"][0]
-    assert "available_actions" not in item
-    assert "links" not in item
-    assert item["navigation"]["status"] == "MISSING"
+    assert item["available_actions"] == ["investigate_trace"]
+    assert "links" in item
+    assert item["navigation"]["status"] == "SUCCESS"
 
 
-def test_candidate_with_bg_request_type_has_no_actions_or_links():
+def test_candidate_with_bg_type_gets_actions():
     row = _row(1)
     row["requestType"] = "BG"
+    artifact = normalize_candidates(
+        response={"status": 200, "data": [row]},
+        source_run_id="run-source",
+        scope={"bizSystemId": "biz-1"},
+        time_context={"requested": "last_30m"},
+        raw_ref="raw/response-0003.json",
+    )
+    item = artifact["data"]["items"][0]
+    assert item["available_actions"] == ["investigate_trace"]
+    assert "links" in item
+    assert item["navigation"]["status"] == "SUCCESS"
+
+
+def test_candidate_with_unknown_request_type_has_no_actions():
+    row = _row(1)
+    row["requestType"] = "XX"
     artifact = normalize_candidates(
         response={"status": 200, "data": [row]},
         source_run_id="run-source",

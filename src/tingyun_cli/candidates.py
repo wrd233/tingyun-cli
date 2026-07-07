@@ -105,8 +105,19 @@ def inspect_candidates_filter(run_path: Path, *, metric: str, operator: str, val
     return {"schema_version": 1, "run_id": Path(run_path).name, "metric": metric, "operator": operator, "value": value, "items": items}
 
 
-_PROVEN_TRACE_REQUEST_TYPES = {"WEB", "TX"}
-_PROVEN_URL_REQUEST_TYPES = {"WEB", "TX"}
+_PROVEN_TRACE_REQUEST_TYPES = {"WEB", "TX", "BG"}
+_PROVEN_URL_REQUEST_TYPES = {"WEB", "TX", "BG"}
+
+
+def _split_request_types(request_type: str):
+    return [t.strip() for t in request_type.split(",") if t.strip()]
+
+
+def _first_proven_type(request_type: str, proven: set) -> str:
+    for t in _split_request_types(request_type):
+        if t in proven:
+            return t
+    return ""
 
 
 def _candidate_item(index: int, row: Dict[str, Any], source_run_id: str, scope: Dict[str, Any], raw_ref: str) -> Dict[str, Any]:
@@ -138,7 +149,9 @@ def is_investigate_trace_eligible(item: Dict[str, Any]) -> bool:
     if not all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId", "requestType")):
         return False
     request_type = identity.get("requestType", "")
-    return request_type in _PROVEN_TRACE_REQUEST_TYPES
+    if request_type in _PROVEN_TRACE_REQUEST_TYPES:
+        return True
+    return bool(_first_proven_type(request_type, _PROVEN_TRACE_REQUEST_TYPES))
 
 
 def _is_url_eligible(item: Dict[str, Any]) -> bool:
@@ -146,7 +159,9 @@ def _is_url_eligible(item: Dict[str, Any]) -> bool:
     if not all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId")):
         return False
     request_type = identity.get("requestType", "")
-    return request_type in _PROVEN_URL_REQUEST_TYPES
+    if request_type in _PROVEN_URL_REQUEST_TYPES:
+        return True
+    return bool(_first_proven_type(request_type, _PROVEN_URL_REQUEST_TYPES))
 
 
 def is_inspect_call_tree_eligible(item: Dict[str, Any]) -> bool:

@@ -397,6 +397,8 @@ def _business_tree_request(time_context: Dict[str, Any]) -> Dict[str, Any]:
 def _trace_detail_request(source: Dict[str, Any], time_context: Dict[str, Any]) -> Dict[str, Any]:
     identity = source.get("wire_identity", {})
     endpoint = time_context["endpoint"]
+    raw_action_type = identity.get("requestType") or identity.get("actionType") or ""
+    action_type = raw_action_type.split(",")[0].strip() if "," in raw_action_type else raw_action_type
     return {
         "endpoint_id": "ep_post_server_api_action_trace_detail",
         "method": "POST",
@@ -406,7 +408,7 @@ def _trace_detail_request(source: Dict[str, Any], time_context: Dict[str, Any]) 
             "bizSystemId": identity.get("bizSystemId"),
             "applicationId": identity.get("applicationId"),
             "actionId": identity.get("actionId"),
-            "actionType": identity.get("requestType") or identity.get("actionType"),
+            "actionType": action_type,
             "timePeriod": str(endpoint["timePeriod"]),
             "endTime": endpoint["endTime"],
             "lang": "zh_CN",
