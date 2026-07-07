@@ -1,5 +1,10 @@
 # 听云协议研究来源登记
 本目录保存本轮离线研究输入。`sessions/`、`official-docs/`、`exports/` 为真实源材料，默认不提交 Git；长期版本化目标仅为本 README 与 `research/protocol/`。
+
+## Live evidence 本地约定
+
+`research/sources/live/` 预留给运行验证机器上的 live evidence 原始材料，目录内容 local-only，不提交 Git。该目录不得保存 Authorization、Cookie、Token 或其他可用凭证；协议文件只引用稳定 run identity（例如 `live_evidence_round_2_2026-07-07`）和字段血缘摘要。若 raw evidence 不在当前 Codex workspace，不创建空文件或伪造迁移，只记录 raw evidence local-only on validation host / durable migration pending。
+
 ## Session ZIP 处理记录
 | 整理目录 | 原始包名 | Session 名称 | Session ID | 文件数 | 处理状态 | SHA-256 |
 |---|---:|---|---|---:|---|---|

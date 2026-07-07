@@ -156,10 +156,14 @@ def main() -> int:
 
     main_doc = MAIN_DOC_PATH.read_text(encoding="utf-8")
     gaps_doc = GAPS_PATH.read_text(encoding="utf-8")
+    workflows_text = WORKFLOWS_PATH.read_text(encoding="utf-8")
     defined_gaps = set(re.findall(r"^## (gap_[A-Za-z0-9_]+):", gaps_doc, re.M))
     referenced_gaps = set(re.findall(r"`(gap_[A-Za-z0-9_]+)`", main_doc))
     for gap_id in sorted(referenced_gaps - defined_gaps):
         errors.append(f"dangling gap reference in main doc: {gap_id}")
+    workflow_gap_refs = set(re.findall(r"gap_[A-Za-z0-9_]+", workflows_text))
+    for gap_id in sorted(workflow_gap_refs - defined_gaps):
+        errors.append(f"dangling gap reference in workflows doc: {gap_id}")
 
     for gap_id in sorted(re.findall(r"`(gap_[A-Za-z0-9_]+)`", gaps_doc)):
         if gap_id not in defined_gaps:

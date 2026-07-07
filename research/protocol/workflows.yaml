@@ -98,14 +98,15 @@
       "outputs": [
         "ranked request/action summaries",
         "request count / response / throughput / error list envelopes",
-        "topN overview when returned"
+        "topN overview when returned",
+        "action_id from responseList content[] for direct get_trace_detail entry"
       ],
       "uses": [
         "ep_post_server_api_webaction_list_responselist",
         "ep_post_server_api_webaction_list_throughtlist",
         "ep_post_server_api_webaction_list_errorlist"
       ],
-      "semantic": "已证明近期/窗口化请求统计清单存在；它不是逐条 Trace 列表，item 到 traceGuid 的选择血缘仍进入 gap_recent_request_trace_selection。",
+      "semantic": "responseList 的 recent-request item 已 live-verified 可通过 content[].actionId 直接进入 get_trace_detail；throughtList/errorList 只保留统计清单能力，不能自动继承该 trace 血缘。",
       "verification": "VERIFIED"
     },
     {
@@ -260,7 +261,7 @@
         "ep_get_server_api_action_get_13514",
         "ep_get_server_api_action_alias_13514"
       ],
-      "semantic": "只表达已观察 action/get 与 action/alias 实例把 deep link actionId 解析为运行对象上下文；不建立通用 ID resolver。",
+      "semantic": "只表达已观察 action/get 与 action/alias 实例把 deep link、alarm 或页面 actionId 解析为运行对象上下文；它对 action name/alias/application binding 仍有独立价值，但不是 list_recent_requests -> trace/detail 的必需桥梁。",
       "verification": "PARTIALLY_VERIFIED"
     },
     {
@@ -268,8 +269,9 @@
       "title": "Trace Detail 读取",
       "inputs": [
         "bizSystemId",
-        "applicationId",
+        "applicationId when present in observed trace context",
         "actionType",
+        "action_id from list_recent_requests responseList content[] (live-verified observed request shape)",
         "traceGuid or actionGuid",
         "queryTimestamp when required",
         "time_context"
@@ -280,22 +282,24 @@
         "traceId",
         "instanceId",
         "duration",
-        "headers/data field inventory"
+        "headers/data field inventory",
+        "actionGuid for get_trace_call_tree",
+        "traceId from response data.id for get_trace_call_tree"
       ],
       "uses": [
         "ep_post_server_api_action_trace_detail"
       ],
-      "semantic": "已知 traceGuid/actionGuid 入口；detail 是 callTree、exception、stack 和 agent context 的主要身份来源。",
+      "semantic": "已验证入口至少包括 list_recent_requests.responseList content[].actionId，以及既有观察到的 traceGuid/actionGuid identity；当前 live-observed request shape 中 actionId 足以读取 detail。detail 输出 actionGuid 与 data.id(traceId) 供 callTree 精确消费。",
       "verification": "VERIFIED"
     },
     {
       "id": "get_trace_call_tree",
       "title": "Trace Call Tree 读取",
       "inputs": [
-        "traceId",
-        "actionGuid",
+        "traceId from get_trace_detail response data.id",
+        "actionGuid from get_trace_detail response actionGuid",
         "bizSystemId",
-        "applicationId",
+        "applicationId when present in the observed trace context",
         "queryTimestamp/time_context from detail or page context"
       ],
       "outputs": [
@@ -305,7 +309,7 @@
       "uses": [
         "ep_post_server_api_action_trace_calltree"
       ],
-      "semantic": "callTree 请求消费 detail 或页面上下文中的 traceId/actionGuid/queryTimestamp；缺失连接必须进 gap。",
+      "semantic": "callTree 请求已 live-verified 精确消费 get_trace_detail.response.actionGuid 和 get_trace_detail.response.data.id(traceId)；其他页面上下文字段只按 endpoint contract 中已观察 presence 使用。",
       "verification": "VERIFIED"
     },
     {
@@ -554,9 +558,10 @@
       "title": "已知 Trace 深挖",
       "verification": "VERIFIED",
       "inputs": [
+        "action_id from list_recent_requests responseList content[]",
         "traceGuid/actionGuid",
         "bizSystemId",
-        "applicationId",
+        "applicationId when present in observed trace context",
         "queryTimestamp",
         "time_context"
       ],
@@ -587,7 +592,9 @@
         }
       ],
       "rules": [
+        "responseList.content[].actionId 可作为 live-verified 入口直接进入 get_trace_detail；无需先通过 resolve_action_context",
         "detail/callTree/exceptions 的参数链必须来自同一 trace evidence 或明确进入 gap",
+        "actionGuid.value == traceGuid.value 只记录为本次 live sample 观察，不建立语义等价、fallback 或自动互换规则",
         "stack、agent context、log search 是 optional enrichment；PARTIALLY_VERIFIED 不作为 VERIFIED 核心链必需步骤",
         "空日志结果只证明 envelope，不证明 item 字段"
       ]

@@ -95,83 +95,37 @@ validation task:
 - success criteria: 出现可复核的 container/pod/namespace 字段或接口。
 - do not assume: 不得从应用名推断容器部署。
 
-## gap_runtime_to_trace_list: 运行对象到 Trace 列表血缘不完整
+## gap_runtime_to_trace_list: transaction/actionItemList actionId 冷启动来源未证明
 
-- 已知事实：已观察 webaction/external/error 清单和 trace detail。
-- 缺失证据：部分运行清单 item 到 `traceGuid/actionGuid/queryTimestamp` 的来源未完整闭环。`list_transactions` (actionItemList) 路径仍缺 actionId 冷启动来源。
-- 对能力影响：alarm_to_trace 以 PARTIALLY_VERIFIED 表示；`list_recent_requests` → trace 子路径已升级为 VERIFIED。
-- live_evidence_round_1 (2026-07-07): PARTIAL — 4 次只读请求，目标业务系统无活跃数据。
-  - 已确认：`getBusinessTree` → `bizSystemId` + `applicationId` 链路正常可用。
-  - 已确认：`actionItemList` 在缺少 `actionId` 参数时返回 INTERNAL 错误（该参数为必需项）。
-  - 已确认：`responseList`（list_recent_requests）无需 `actionId` 即可调用，但目标业务系统在 120 分钟窗口内返回空列表。
-  - evidence_ref: `/tmp/tingyun-evidence/live_live_001..004_response.json` (本地，未提交)
-- live_evidence_round_2 (2026-07-07): PASS — `list_recent_requests` → trace/detail → callTree 完整血缘已证明（5 次只读请求，EDI 业务系统）。
-  - **已证明血缘链：**
-    1. `responseList.content[].actionId` → `trace/detail` request `actionId` (exact match)
-    2. `trace/detail` response `actionGuid` → `callTree` request `actionGuid` (exact match)
-    3. `trace/detail` response `id` → `callTree` request `traceId` (exact match)
-  - **新发现：** `trace/detail` 可以用 `actionId`（无需 `actionGuid`）调用；响应中 `actionGuid == traceGuid`。
-  - **新发现：** `trace/detail` 响应中 `data.id` 即为 `traceId`，用于 callTree。
-  - **仍阻塞：** `actionItemList` (list_transactions) 需要 `actionId`，冷启动无法获得；`action/get` 和 `action/alias` 不返回 `actionGuid`。
-  - evidence_ref: `/tmp/tingyun-evidence/round2_live_001..005_response.json` (本地，未提交)
-- 下一次 Capture 要补什么：在 UI 中从事务列表 (actionItemList) 点击进入 Trace，抓取 actionId 的 UI 来源（URL参数/页面状态/前置请求），补全 `list_transactions` → trace 的最后一段。
-- 成功判定条件：证明 list.response.field -> trace detail request.parameter。
-- 禁止假设：不得用相似 actionId 补 traceGuid。
+- 已知事实：`list_recent_requests` / `responseList` -> `trace/detail` -> `callTree` 已由 `live_evidence_round_2_2026-07-07` 证明，不再属于本 Gap。`actionItemList` 在缺少 `actionId` 参数时返回 INTERNAL，说明 transaction/actionItemList 路径仍需要前置 `actionId`。
+- 缺失证据：Application / transaction context 如何获得 `actionItemList` 所需的冷启动 `actionId` 尚未证明；可能来自 URL、页面状态、前置请求或其他 observed READ response，但当前协议不能假设来源。
+- 对能力影响：`alarm_to_trace` 中通过 transaction/actionItemList 枚举 Trace 的路径仍为 PARTIALLY_VERIFIED；`list_recent_requests` -> Trace 子路径已升级为 VERIFIED。
+- live_evidence_round_1 (2026-07-07): PARTIAL — 4 次只读请求；确认 `actionItemList` 缺少 `actionId` 时失败，`responseList` 无需 `actionId` 但当时目标业务系统无活跃数据。Raw evidence local-only on validation host; durable migration pending。
+- 下一次 Capture 要补什么：从 Application / transaction UI 冷启动进入 `actionItemList`，抓取 `actionId` 的来源（URL 参数、页面状态、前置请求或其他 observed READ response），再进入 Trace。
+- 成功判定条件：证明 `actionItemList` request `actionId` 的上游来源，并证明该路径如何继续进入 trace detail request parameter。
+- 禁止假设：不得用相似 actionId 补 traceGuid；不得把 `responseList.content[].actionId` 的成功样本泛化为 transaction/actionItemList 的冷启动来源。
 - related_capabilities:
   - `resolve_action_context`
   - `list_transactions`
-  - `list_recent_requests`
   - `get_trace_detail`
-  - `get_trace_call_tree`
 - related_endpoints:
   - `ep_get_server_api_action_get_12489`
   - `ep_get_server_api_action_alias_12489`
   - `ep_post_server_api_webaction_list_actionitemlist`
-  - `ep_post_server_api_webaction_list_responselist`
   - `ep_post_server_api_action_trace_detail`
-  - `ep_post_server_api_action_trace_calltree`
 - related_recipes:
   - `alarm_to_trace`
   - `trace_investigation`
 - evidence_seed: `03-alarm-to-trace` request-0380/request-0381 for action context and request-0476/request-0490 for trace detail/callTree.
 
 validation task:
-- goal: 运行对象到 Trace 列表血缘不完整 — `list_recent_requests` 路径已闭环，`list_transactions` (actionItemList) 路径仍需 actionId 冷启动来源。
-- starting context: `list_recent_requests` (responseList) -> `get_trace_detail` -> `get_trace_call_tree` 已 VERIFIED；`resolve_action_context` -> `list_transactions` (actionItemList) 仍缺 actionId 来源。
-- exploration target: 在 UI 中从 webaction/actionItemList 页面点击进入 Trace，抓取 actionId 的 UI 来源。
+- goal: 证明 transaction/actionItemList 的冷启动 `actionId` 来源。
+- starting context: `resolve_action_context` 与 `list_transactions` (actionItemList)；`list_recent_requests` (responseList) -> `get_trace_detail` -> `get_trace_call_tree` 已 VERIFIED，仅作为已排除路径。
+- exploration target: 在 UI 中从 Application / transaction context 进入 webaction/actionItemList，抓取 actionId 的 UI 来源。
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
-- success criteria: 证明 actionItemList 的 actionId 参数来源（URL/前置请求/页面状态）。
+- success criteria: 证明 actionItemList 的 actionId 参数来源（URL/前置请求/页面状态/其他 observed READ response）。
 - do not assume: 不得用相似 actionId 补 traceGuid。
-- round_1_finding: `actionItemList` 的 `actionId` 参数为必需项（省略返回 INTERNAL），冷启动无法获得。`responseList` 在测试目标上返回空数据。
-- round_2_finding: `responseList` → `trace/detail` → `callTree` 完整血缘已用 exact value match 证明；`trace/detail` 接受 `actionId` 作为唯一身份参数（无需 `actionGuid`）；响应中 `actionGuid == traceGuid`，`data.id` 即为 `traceId`。
-
-## gap_recent_request_trace_selection: 近期请求清单到 Trace 选择需要补证
-
-- 已知事实：导出和 Session 证明请求统计清单存在。
-- 缺失证据：缺少近期清单中用户选择某一 item 后的 traceGuid 生成方式。
-- 对能力影响：近期清单入口为 PARTIALLY_VERIFIED。
-- 下一次 Capture 要补什么：Capture 业务系统近期请求清单，排序后点击一条进入 Trace。
-- 成功判定条件：记录 item 字段、点击 URL、后续 request 参数。
-- 禁止假设：不得把 CSV 事务名称当 Wire trace key。
-- related_capabilities:
-  - `list_recent_requests`
-  - `get_trace_detail`
-- related_endpoints:
-  - `ep_post_server_api_webaction_list_responselist`
-  - `ep_post_server_api_webaction_list_throughtlist`
-  - `ep_post_server_api_webaction_list_errorlist`
-  - `ep_post_server_api_action_trace_detail`
-- related_recipes:
-  - `scan_business_system`
-- evidence_seed: 从 webaction response/throught/error list 的 item 字段点击进入 Trace，并保存页面 URL 与后续 trace/detail 请求。
-
-validation task:
-- goal: 近期请求清单到 Trace 选择需要补证
-- starting context: `list_recent_requests`，重点看 responseList、throughtList、errorList 及后续 trace/detail。
-- exploration target: Capture 业务系统近期请求清单，排序后点击一条进入 Trace。
-- evidence to capture: request, response, page URL, journey interaction, export if produced.
-- success criteria: 记录 item 字段、点击 URL、后续 request 参数。
-- do not assume: 不得把 CSV 事务名称当 Wire trace key。
+- round_1_finding: `actionItemList` 的 `actionId` 参数为必需项（省略返回 INTERNAL），冷启动无法获得。
 
 ## gap_stack_non_empty: Stack 非空结构未充分证明
 

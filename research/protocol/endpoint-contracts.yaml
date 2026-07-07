@@ -15731,7 +15731,24 @@
           "application/x-www-form-urlencoded"
         ]
       },
-      "parameter_lineage": [],
+      "parameter_lineage": [
+        {
+          "source": "ep_post_server_api_action_trace_detail.response.data.actionGuid",
+          "downstream": "request.body.actionGuid",
+          "role": "trace_detail_action_guid_to_call_tree",
+          "verification": "LIVE_VERIFIED_EXACT_MATCH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07",
+          "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
+        },
+        {
+          "source": "ep_post_server_api_action_trace_detail.response.data.id",
+          "downstream": "request.body.traceId",
+          "role": "trace_detail_trace_id_to_call_tree",
+          "verification": "LIVE_VERIFIED_EXACT_MATCH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07",
+          "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
+        }
+      ],
       "response": {
         "content_types": [
           "application/json"
@@ -16268,6 +16285,13 @@
           "request_ref": "request-0251",
           "request_body_ref": "evidence/requests/request-0251-request-79ae92e09f6a.txt",
           "response_body_ref": "evidence/responses/request-0251-response-681351740189.json"
+        },
+        {
+          "source_type": "live_validation",
+          "run_id": "live_evidence_round_2_2026-07-07",
+          "role": "consume exact actionGuid and traceId from trace/detail",
+          "scope": "business-system-scoped responseList -> trace/detail -> callTree sample; no live requests run in this pass",
+          "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
         }
       ]
     },
@@ -16422,7 +16446,41 @@
           "application/x-www-form-urlencoded"
         ]
       },
-      "parameter_lineage": [],
+      "parameter_lineage": [
+        {
+          "source": "ep_post_server_api_webaction_list_responselist.response.data.content[].actionId",
+          "downstream": "request.body.actionId",
+          "role": "live_verified_action_id_entry_path",
+          "verification": "LIVE_VERIFIED_EXACT_MATCH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07",
+          "note": "actionId is accepted by this live-observed trace/detail request shape; do not generalize to all variants",
+          "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
+        },
+        {
+          "source": "response.data.actionGuid",
+          "downstream": "ep_post_server_api_action_trace_calltree.request.body.actionGuid",
+          "role": "trace_detail_to_call_tree_action_guid",
+          "verification": "LIVE_VERIFIED_EXACT_MATCH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07",
+          "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
+        },
+        {
+          "source": "response.data.id",
+          "downstream": "ep_post_server_api_action_trace_calltree.request.body.traceId",
+          "role": "trace_detail_to_call_tree_trace_id",
+          "verification": "LIVE_VERIFIED_EXACT_MATCH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07",
+          "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
+        },
+        {
+          "source": "response.data.actionGuid and response/request traceGuid values",
+          "downstream": "trace identity note",
+          "role": "sample_observed_equal_values_only",
+          "verification": "LIVE_OBSERVED_SAMPLE_ONLY",
+          "evidence_ref": "live_evidence_round_2_2026-07-07",
+          "note": "actionGuid.value == traceGuid.value in this live sample only; not a semantic equivalence or alias rule"
+        }
+      ],
       "response": {
         "content_types": [
           "application/json"
@@ -16911,11 +16969,39 @@
             "types": [
               "array"
             ]
+          },
+          {
+            "path": "data.id",
+            "types": [
+              "string"
+            ]
           }
         ],
         "business_success_observed": true
       },
-      "normalized_mapping": [],
+      "normalized_mapping": [
+        {
+          "field": "request.actionId",
+          "semantic": "trace_detail_identity_input",
+          "verification": "LIVE_VERIFIED_ENTRY_PATH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07",
+          "live_scope": "current live-observed request shape accepts actionId without prior actionGuid conversion"
+        },
+        {
+          "field": "data.actionGuid",
+          "semantic": "action_guid",
+          "downstream_consumer": "ep_post_server_api_action_trace_calltree request body actionGuid",
+          "verification": "LIVE_VERIFIED_EXACT_MATCH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07"
+        },
+        {
+          "field": "data.id",
+          "semantic": "trace_id",
+          "downstream_consumer": "ep_post_server_api_action_trace_calltree request body traceId",
+          "verification": "LIVE_VERIFIED_EXACT_MATCH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07"
+        }
+      ],
       "pagination": {
         "observed_parameters": []
       },
@@ -16974,6 +17060,13 @@
           "document": "application-and-microservice-api.pdf",
           "page": 531,
           "section": "11.2   事务追踪详情"
+        },
+        {
+          "source_type": "live_validation",
+          "run_id": "live_evidence_round_2_2026-07-07",
+          "role": "accept actionId and produce callTree identities",
+          "scope": "business-system-scoped responseList -> trace/detail -> callTree sample; no live requests run in this pass",
+          "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
         }
       ]
     },
@@ -54762,7 +54855,17 @@
           "application/x-www-form-urlencoded"
         ]
       },
-      "parameter_lineage": [],
+      "parameter_lineage": [
+        {
+          "source": "response.data.content[].actionId",
+          "downstream": "ep_post_server_api_action_trace_detail.request.body.actionId",
+          "role": "recent_request_action_id_to_trace_detail_identity",
+          "verification": "LIVE_VERIFIED_EXACT_MATCH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07",
+          "live_scope": "business-system-scoped responseList sample only",
+          "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
+        }
+      ],
       "response": {
         "content_types": [
           "application/json"
@@ -54820,11 +54923,27 @@
             "types": [
               "integer"
             ]
+          },
+          {
+            "path": "data.content[].actionId",
+            "types": [
+              "integer",
+              "string"
+            ]
           }
         ],
         "business_success_observed": true
       },
-      "normalized_mapping": [],
+      "normalized_mapping": [
+        {
+          "field": "data.content[].actionId",
+          "semantic": "action_id",
+          "downstream_consumer": "ep_post_server_api_action_trace_detail request body actionId",
+          "verification": "LIVE_VERIFIED_EXACT_MATCH",
+          "evidence_ref": "live_evidence_round_2_2026-07-07",
+          "live_scope": "responseList path only; does not upgrade throughtList or errorList"
+        }
+      ],
       "pagination": {
         "observed_parameters": []
       },
@@ -54863,6 +54982,13 @@
           "request_ref": "request-0704",
           "request_body_ref": "evidence/requests/request-0704-request-9ebf41e3294f.txt",
           "response_body_ref": "evidence/responses/request-0704-response-a0de31f9679b.json"
+        },
+        {
+          "source_type": "live_validation",
+          "run_id": "live_evidence_round_2_2026-07-07",
+          "role": "source recent-request actionId for trace/detail",
+          "scope": "business-system-scoped responseList -> trace/detail -> callTree sample; no live requests run in this pass",
+          "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
         }
       ]
     },

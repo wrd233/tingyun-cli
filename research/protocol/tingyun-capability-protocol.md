@@ -1,6 +1,6 @@
 # 听云能力协议基线
 
-本协议基线只来自本地离线证据：6 组 AI-ready Session、2 份官方 API PDF、12 个导出文件。未连接听云环境，未发送 HTTP 请求，未实现 CLI、HTTP 客户端、写操作执行器或 Agent/LLM 系统。旧 CLI/catalog/snapshot/命令树未作为约束。
+本协议基线主体来自本地离线证据：6 组 AI-ready Session、2 份官方 API PDF、12 个导出文件；另吸收 2026-07-07 已完成的两轮低频只读 live validation 结论。本文档不包含 Cookie、Token、Authorization 或内部 origin，不实现 CLI、HTTP 客户端、写操作执行器或 Agent/LLM 系统。旧 CLI/catalog/snapshot/命令树未作为约束。
 
 ## 覆盖基线
 
@@ -43,7 +43,7 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 
 ### 问题溯源
 
-已观察到告警入口、Action/运行对象身份桥梁和已知 Trace 入口。强证据链包括 `nalarm-api/event/traceList`、`nalarm-api/event/trace`、动作概览 deep link、`server-api/action/get/{observedActionId}`、`server-api/action/alias/{observedActionId}`、`server-api/action/trace/detail`、`callTree` 和 `exceptions`。Stack、Agent Context 和日志搜索作为 Trace 深挖补充能力记录；缺口是部分运行清单到 traceGuid 的来源仍需后续 Capture 补强。
+已观察到告警入口、Action/运行对象身份桥梁、近期请求入口和已知 Trace 入口。当前最强 live-verified 链路是 business-system-scoped recent request path：`getBusinessTree` 发现业务系统，`responseList.content[].actionId` 精确进入 `trace/detail.request.actionId`，`trace/detail.response.actionGuid` 与 `trace/detail.response.data.id(traceId)` 精确进入 `callTree`。Stack、Agent Context 和日志搜索作为 Trace 深挖补充能力记录；剩余缺口是 `list_transactions` / `actionItemList` 的冷启动 `actionId` 来源，而不是 `responseList` 近期请求链路。
 
 ## 能力覆盖矩阵
 
@@ -79,7 +79,8 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 | 问题溯源 | 告警入口 | VERIFIED | `list_alarm_events` | `alarm_to_trace` | `` |
 | 问题溯源 | Action / 运行对象身份 | PARTIALLY_VERIFIED | `resolve_action_context` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
 | 问题溯源 | 运行对象入口 | PARTIALLY_VERIFIED | `list_transactions` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
-| 问题溯源 | 近期清单入口 | PARTIALLY_VERIFIED | `list_recent_requests` | `scan_business_system` | `gap_recent_request_trace_selection` |
+| 问题溯源 | 近期清单入口 | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
+| 问题溯源 | 近期请求 → Trace | VERIFIED | `list_recent_requests` -> `get_trace_detail` -> `get_trace_call_tree` | `trace_investigation` | `` |
 | 问题溯源 | 已知 Trace 入口 | VERIFIED | `get_trace_detail` | `trace_investigation` | `` |
 | 问题溯源 | Trace 列表 | PARTIALLY_VERIFIED | `list_transactions` | `trace_investigation` | `gap_runtime_to_trace_list` |
 | 问题溯源 | Trace Detail | VERIFIED | `get_trace_detail` | `trace_investigation` | `` |
@@ -100,13 +101,25 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 | 5 | 进入已知 Trace 详情 | `POST /server-api/action/trace/detail` | request-0476 | `get_trace_detail` 请求含 `bizSystemId/applicationId/actionType/traceGuid/queryTimestamp/timePeriod/endTime`；响应给出 `traceGuid/actionGuid/traceId/instanceId/duration/timeLine`。 |
 | 6 | Trace 深挖 | `POST /server-api/action/trace/callTree`、`detail/exceptions`、`data/logTrace/searchLogTrace` | request-0490, request-0494, request-0496 | `get_trace_call_tree` 消费 detail 上下文中的 `traceId/actionGuid/queryTimestamp`；`list_trace_exceptions` 返回非空 HTTP Error Code；`search_trace_logs` 返回空列表，只作为 optional enrichment 证明 envelope。 |
 
+## Live-Verified Golden Path
+
+| 阶段 | Wire 字段 / Endpoint | 证明范围 |
+|---|---|---|
+| Business System | `GET /server-api/data/business/getBusinessTree` | 发现业务系统身份；核心链按 business system scope 描述，不把未解释的 applicationId 写成必需输入。 |
+| Recent Request List | `POST /server-api/webaction/list/responseList` -> `response.data.content[].actionId` | `actionId` 是已验证的 recent-request item 输出；本结论只覆盖 responseList live sample，不自动扩展到 throughtList/errorList。 |
+| Trace Detail | `POST /server-api/action/trace/detail` request `actionId` | 当前 live-observed request shape 中，`actionId` 足以作为 detail 身份输入，无需先经 action/get 或 action/alias 转换为 actionGuid。 |
+| Call Tree | `trace/detail.response.actionGuid` -> `callTree.request.actionGuid`; `trace/detail.response.data.id` -> `callTree.request.traceId` | 两个下游参数均为 exact value match；callTree 返回非空完整调用树。 |
+
+Live run audit note：round 2 声明 total live requests = 5；当前 Codex workspace 没有 raw evidence，能在协议中确认的 proven lineage 为 LIVE-001、LIVE-002、LIVE-004、LIVE-005，LIVE-003 detail unavailable in current Codex workspace。报告中曾出现 `1616` 与 `1619` 两个 application ID；当前证据不足以解释差异，因此已验证主链保持为 business-system-scoped，不把任何 applicationId 写成必需血缘。`actionGuid.value == traceGuid.value` 仅记录为本次 live sample 观察，不建立永久语义等价、fallback 或自动互换规则。
+
 ## 跨 Session 组合能力路径
 
 | 阶段 | Session | Capability | 连接级别 | 说明 |
 |---|---|---|---|---|
 | 业务系统拓扑扫描 | `01-business-system-top-down` | `list_business_systems` -> `read_business_topology` | VERIFIED CONNECTION | 同 Session 内业务系统、应用和调用边有连续请求证据。 |
 | 应用深入指标 | `02-application-deep-dive` | `read_application_overview` -> `read_performance_timeseries` -> `list_recent_requests` / `list_transactions` / `list_external_calls` | PROTOCOL-COMPATIBLE | 与 01 使用同类 `server-api` Endpoint 和相同对象类型；不是一次真实连续操作。 |
-| 告警到 Trace | `03-alarm-to-trace` | `list_alarm_events` -> `read_alarm_event_detail` -> `resolve_action_context` -> `get_trace_detail` -> `get_trace_call_tree` | VERIFIED CONNECTION WITH GAPS | 同 Session 内存在告警、运行对象身份桥梁和 Trace 深挖链路；运行清单 item 到 traceGuid 的通用选择仍是 Gap。 |
+| 近期请求到 Trace | `live_evidence_round_2_2026-07-07` | `list_recent_requests` -> `get_trace_detail` -> `get_trace_call_tree` | LIVE-VERIFIED CONNECTION | `responseList.content[].actionId` 直接进入 trace/detail，detail 输出 `actionGuid` 与 `data.id(traceId)` 进入 callTree。 |
+| 告警到 Trace | `03-alarm-to-trace` | `list_alarm_events` -> `read_alarm_event_detail` -> `resolve_action_context` -> `get_trace_detail` -> `get_trace_call_tree` | VERIFIED CONNECTION WITH GAPS | 同 Session 内存在告警、运行对象身份桥梁和 Trace 深挖链路；剩余缺口只指向 transaction/actionItemList 的冷启动 `actionId` 来源。 |
 | 写能力证据保存 | `04/05/06` | `manage_business_settings` / `manage_anomaly_detection_policy` / `manage_alarm_rules` | EVIDENCE PRESERVED | 写能力保留为 Endpoint Contract 与 Capability 证据；不再作为正式业务 Recipe，不参与自动执行。 |
 
 ## 导出字段语义对照
