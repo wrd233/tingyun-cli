@@ -27,7 +27,8 @@
       ],
       "outputs": [
         "structural nodes",
-        "time-windowed runtime edges"
+        "time-windowed runtime edges",
+        "edge metrics: response, throught, error"
       ],
       "uses": [
         "ep_post_server_api_graph_querybizsystengraph",
@@ -35,7 +36,7 @@
         "ep_post_server_api_graph_querygraphhealth",
         "ep_get_server_api_data_business_appendsubbusinessapplist"
       ],
-      "semantic": "区分业务系统结构关系与运行调用边；调用边必须保留 time_context。",
+      "semantic": "区分业务系统结构关系与运行调用边；调用边必须保留 time_context。live run 20260707-0400-micro-shape-scope-validation 确认 queryBizDetailGraph 的可执行形态由适配层注入 mergeGraph=\"1\" 与 cascadingDisplay=\"1\" 字符串值；这些字段不是用户能力输入。",
       "verification": "VERIFIED"
     },
     {
@@ -70,7 +71,8 @@
         "timePeriod"
       ],
       "outputs": [
-        "response time",
+        "business-system response time series",
+        "business-system response percentile series: P50, P80, P95, P99",
         "throughput",
         "error rate",
         "apdex series"
@@ -84,7 +86,7 @@
         "ep_post_server_api_webaction_charts_throught",
         "ep_post_server_api_webaction_charts_error"
       ],
-      "semantic": "每个 metric 需保留 scope/semantic/aggregation/unit/time_context/shape，不跨 endpoint 合并统计口径。application/charts/response 的历史成功 shape 含 businessType=BIZ_SYSTEM；省略字段若只返回空 series，只能说明 request layer accepted omission，不能证明 businessType 语义 optional。",
+      "semantic": "每个 metric 需保留 scope/semantic/aggregation/unit/time_context/shape，不跨 endpoint 合并统计口径。live run 20260707-0400-micro-shape-scope-validation 确认 application/charts/response 在 business-system scope 下使用 businessType=\"BIZ_SYSTEM\" 可返回响应时间、P50、P80、P95、P99 五组 ms series；该结论不外推到省略 businessType、application scope 或其他 chart endpoint。",
       "verification": "VERIFIED"
     },
     {
@@ -485,7 +487,7 @@
         },
         {
           "capability": "list_transactions",
-          "required": true
+          "required": false
         },
         {
           "capability": "list_service_interfaces",
@@ -504,7 +506,8 @@
         "只在已获得 application_id 时读取应用能力",
         "只在分页响应提供下一页或 total/page 条件时继续翻页",
         "发现真实 dependency type 才读取对应 dependency 能力",
-        "服务接口和组件操作作为可选扩展读取；未验证能力只记录 gap，不补链路"
+        "服务接口和组件操作作为可选扩展读取；未验证能力只记录 gap，不补链路",
+        "list_transactions/actionItemList 仅在已有验证来源的 actionId 时执行；冷启动 actionId 来源未证明时跳过并记录 gap_runtime_to_trace_list。"
       ]
     },
     {
@@ -553,7 +556,7 @@
       "rules": [
         "告警 target.value 不默认等价 actionId；必须由 action/get、action/alias、页面 URL 或下游请求证明",
         "跨页面 deep link、Action 身份解析与 Trace API 验证分开记录",
-        "没有 traceGuid/actionGuid 时不得编造 trace detail 请求",
+        "没有已验证来源的 Trace Detail entry identity 时不得构造 detail 请求；已验证入口包括 responseList.actionId 与既有 traceGuid/actionGuid 合同。",
         "日志搜索只是 optional enrichment，空结果不影响告警到 Trace 核心链判断"
       ]
     },

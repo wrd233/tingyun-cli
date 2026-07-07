@@ -20156,11 +20156,45 @@
             "types": [
               "array"
             ]
+          },
+          {
+            "path": "data.series[].name",
+            "types": [
+              "string"
+            ]
+          },
+          {
+            "path": "data.series[].data",
+            "types": [
+              "array"
+            ]
+          },
+          {
+            "path": "data.yAxis[].tickUnit",
+            "types": [
+              "string"
+            ]
           }
         ],
         "business_success_observed": true
       },
-      "normalized_mapping": [],
+      "normalized_mapping": [
+        {
+          "id": "business_system_response_timeseries_micro_20260707",
+          "source": "live run 20260707-0400-micro-shape-scope-validation LIVE-002",
+          "scope": "business_system",
+          "wire_shape": "POST form body with bizSystemId, businessType=\"BIZ_SYSTEM\", timePeriod, endTime, lang=zh_CN",
+          "normalized_semantics": [
+            "response_time_average_series",
+            "response_time_percentile_p50_series",
+            "response_time_percentile_p80_series",
+            "response_time_percentile_p95_series",
+            "response_time_percentile_p99_series"
+          ],
+          "observed_result": "transport SUCCESS, http 200, business code 200; five series with 30 points each; overviews avg=22 and max=160585; yAxis tickUnit=ms",
+          "limits": "This verifies the business-system response chart variant only; it does not generalize to omitted businessType, application scope, or other chart endpoints."
+        }
+      ],
       "pagination": {
         "observed_parameters": []
       },
@@ -20216,13 +20250,14 @@
       ],
       "request_shape_audit": [
         {
-          "id": "live_empty_series_scope_audit_2026_07_07",
-          "evidence_status": "SUPPORTED_EMPTY_AND_UNRESOLVED_EXACT_SHAPE",
-          "historical_success_shape": "form body includes bizSystemId, businessType=BIZ_SYSTEM, timePeriod, endTime, lang; no applicationId/applicationIds observed in this contract variant",
-          "live_shape": "request-log parameter sources show target bizSystemId, RUN_END_TIME, timePeriod=30, and businessType determined by trial; exact LIVE-004-request.json is absent, so final body and businessType value are unauditable",
-          "businessType_semantics": "historical success used businessType=BIZ_SYSTEM; live evidence does not prove omission or semantic optionality because request body is missing",
-          "micro_experiment": "Micro Experiment B: one read-only POST using variant_default historical business-system scope with businessType=BIZ_SYSTEM and fixed RUN_END_TIME; stop after first response",
-          "live_response": "LIVE-004-response.json has business code 200 and data.series length 0 while LIVE-005 responseList has totalElements=5"
+          "id": "live_verified_business_system_scope_micro_20260707",
+          "evidence_status": "CONFIRMED_EXECUTABLE_SHAPE",
+          "run_id": "20260707-0400-micro-shape-scope-validation",
+          "endpoint_variant": "variant_default",
+          "live_request_shape": "POST form body includes bizSystemId, businessType=\"BIZ_SYSTEM\", timePeriod=\"30\", endTime=<RUN_END_TIME>, lang=\"zh_CN\"; all values observed as strings.",
+          "live_response": "LIVE-002 transport_status SUCCESS, http_status 200, business_code 200; response has five 30-point ms series: 响应时间, 50分位值, 80分位值, 95分位值, 99分位值; overviews avg=22 and max=160585.",
+          "business_semantics": "Confirmed business-system-scope response-time series and percentile series for this endpoint variant.",
+          "limits": "Do not infer businessType can be omitted, do not generalize to application-scoped variants, and do not generalize to all chart endpoints."
         }
       ]
     },
@@ -46947,11 +46982,43 @@
             "types": [
               "array"
             ]
+          },
+          {
+            "path": "data.linkeDataArray[].response",
+            "types": [
+              "number"
+            ]
+          },
+          {
+            "path": "data.linkeDataArray[].throught",
+            "types": [
+              "number"
+            ]
+          },
+          {
+            "path": "data.linkeDataArray[].error",
+            "types": [
+              "number"
+            ]
           }
         ],
         "business_success_observed": true
       },
-      "normalized_mapping": [],
+      "normalized_mapping": [
+        {
+          "id": "business_topology_runtime_edges_micro_20260707",
+          "source": "live run 20260707-0400-micro-shape-scope-validation LIVE-001",
+          "scope": "business_system",
+          "wire_shape": "POST form body with bizSystemId, timePeriod, endTime, mergeGraph=\"1\", cascadingDisplay=\"1\", lang=zh_CN",
+          "normalized_semantics": [
+            "structural_nodes from data.nodeDataArray",
+            "time_windowed_runtime_edges from data.linkeDataArray",
+            "edge_metrics response/throught/error preserved as observed wire spellings"
+          ],
+          "observed_result": "transport SUCCESS, http 200, non-empty topology with 12 nodes and 27 edges",
+          "limits": "This confirms one executable variant; it does not prove mergeGraph alone caused the previous INTERNAL response."
+        }
+      ],
       "pagination": {
         "observed_parameters": []
       },
@@ -47008,13 +47075,14 @@
       ],
       "request_shape_audit": [
         {
-          "id": "live_internal_shape_audit_2026_07_07",
-          "evidence_status": "CONTRADICTED_STATUS_AND_UNRESOLVED_SHAPE",
-          "historical_success_shape": "form body includes bizSystemId, timePeriod, endTime, mergeGraph, cascadingDisplay, lang; observed mergeGraph values 1 and 0 with cascadingDisplay=1",
-          "live_shape": "request-log parameter sources show target bizSystemId, RUN_END_TIME, and timePeriod=30; exact LIVE-002-request.json is absent, so mergeGraph/cascadingDisplay presence is unauditable",
-          "minimal_difference_to_validate": "Use historical graph discriminator presence (mergeGraph=1 plus cascadingDisplay=1) because the live request shape cannot prove these fields were present",
-          "micro_experiment": "Micro Experiment A: one read-only POST to this endpoint using variant_default and historical field presence for the target business system and fixed RUN_END_TIME; stop after first response",
-          "live_response": "LIVE-002-response.json business code is INTERNAL; request-log and live-run-summary incorrectly record result SUCCESS, while final-report request audit says INTERNAL error"
+          "id": "live_verified_shape_micro_20260707",
+          "evidence_status": "CONFIRMED_EXECUTABLE_SHAPE",
+          "run_id": "20260707-0400-micro-shape-scope-validation",
+          "endpoint_variant": "variant_default",
+          "live_request_shape": "POST form body includes bizSystemId, timePeriod=\"30\", endTime=<RUN_END_TIME>, mergeGraph=\"1\", cascadingDisplay=\"1\", lang=\"zh_CN\"; all discriminator values observed as strings.",
+          "live_response": "LIVE-001 transport_status SUCCESS, http_status 200; response body has data.nodeDataArray length 12 and data.linkeDataArray length 27 with edge metrics response, throught, error.",
+          "business_semantics": "Confirmed executable business-system topology shape with structural nodes and time-windowed runtime edges.",
+          "limits": "Do not claim a single-variable root cause for the earlier INTERNAL result; only the full observed shape is verified."
         }
       ]
     },

@@ -39,7 +39,7 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 
 ### 性能与运行指标
 
-核心 Metric 保留最小统计身份：`scope`、`semantic`、`aggregation`、`unit`、`time_context`、`shape`。导出文件证明用户可见统计语义，例如 P50/P75/P95/P99、吞吐率、请求数、错误率、慢次数、异常次数，但不反推 Wire 字段或排序参数。运行对象清单不再合并为单一 Capability：近期请求统计、事务、服务接口、外部调用和组件操作分别按真实 Endpoint 边界建模。`application/charts/response` 的历史成功 shape 包含 `businessType=BIZ_SYSTEM`；省略该字段若只返回空 series，不能证明它语义上 optional。
+核心 Metric 保留最小统计身份：`scope`、`semantic`、`aggregation`、`unit`、`time_context`、`shape`。导出文件证明用户可见统计语义，例如 P50/P75/P95/P99、吞吐率、请求数、错误率、慢次数、异常次数，但不反推 Wire 字段或排序参数。运行对象清单不再合并为单一 Capability：近期请求统计、事务、服务接口、外部调用和组件操作分别按真实 Endpoint 边界建模。`application/charts/response` 的 business-system scope shape 已由 live run `20260707-0400-micro-shape-scope-validation` 确认：`businessType="BIZ_SYSTEM"` 可返回响应时间、P50、P80、P95、P99 五组 ms series；该结论不证明 `businessType` 可省略，也不外推到 application scope 或其他 chart endpoint。
 
 ### 问题溯源
 
@@ -76,7 +76,7 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 | 性能与运行指标 | 分位值 | VERIFIED | `read_performance_timeseries` | `scan_business_system` | `` |
 | 性能与运行指标 | Top / Ranking | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
 | 性能与运行指标 | 请求统计清单 | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
-| 性能与运行指标 | Application response series scope | UNRESOLVED | `read_performance_timeseries` | `scan_business_system` | `gap_application_charts_response_scope_shape` |
+| 性能与运行指标 | Business-System Response Time Series | VERIFIED | `read_performance_timeseries` | `scan_business_system` | `` |
 | 问题溯源 | 告警入口 | VERIFIED | `list_alarm_events` | `alarm_to_trace` | `` |
 | 问题溯源 | Action / 运行对象身份 | PARTIALLY_VERIFIED | `resolve_action_context` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
 | 问题溯源 | 运行对象入口 | PARTIALLY_VERIFIED | `list_transactions` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
@@ -102,34 +102,31 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 | 5 | 进入已知 Trace 详情 | `POST /server-api/action/trace/detail` | request-0476 | `get_trace_detail` 请求含 `bizSystemId/applicationId/actionType/traceGuid/queryTimestamp/timePeriod/endTime`；响应给出 `traceGuid/actionGuid/traceId/instanceId/duration/timeLine`。 |
 | 6 | Trace 深挖 | `POST /server-api/action/trace/callTree`、`detail/exceptions`、`data/logTrace/searchLogTrace` | request-0490, request-0494, request-0496 | `get_trace_call_tree` 消费 detail 上下文中的 `traceId/actionGuid/queryTimestamp`；`list_trace_exceptions` 返回非空 HTTP Error Code；`search_trace_logs` 返回空列表，只作为 optional enrichment 证明 envelope。 |
 
-## Live-Verified Golden Path
+## Cross-Run Composite Golden Path
 
 | 阶段 | Wire 字段 / Endpoint | 证明范围 |
 |---|---|---|
 | Business System | `GET /server-api/data/business/getBusinessTree` | 发现业务系统身份；核心链按 business system scope 描述，不把未解释的 applicationId 写成必需输入。 |
+| Business Topology | `POST /server-api/graph/queryBizDetailGraph` with `mergeGraph="1"` and `cascadingDisplay="1"` | live run `20260707-0400-micro-shape-scope-validation` 确认该完整字符串形态可执行，返回 12 个 structural nodes 和 27 条 time-windowed runtime edges；edge metrics 保留 wire spelling `response`、`throught`、`error`。不声明 `mergeGraph` 单字段导致上一轮 INTERNAL。 |
+| Business-System Response Series | `POST /server-api/application/charts/response` with `businessType="BIZ_SYSTEM"` | 同一 micro run 确认 business-system scope 响应时间序列可执行，返回响应时间、P50、P80、P95、P99 五组 30 点 ms series，overview avg=22、max=160585。 |
 | Recent Request List | `POST /server-api/webaction/list/responseList` -> `response.data.content[].actionId` | `actionId` 是已验证的 recent-request item 输出；本结论只覆盖 responseList live sample，不自动扩展到 throughtList/errorList。 |
 | Trace Detail | `POST /server-api/action/trace/detail` request `actionId` | 当前 live-observed request shape 中，`actionId` 足以作为 detail 身份输入，无需先经 action/get 或 action/alias 转换为 actionGuid。 |
 | Call Tree | `trace/detail.response.actionGuid` -> `callTree.request.actionGuid`; `trace/detail.response.data.id` -> `callTree.request.traceId` | 两个下游参数均为 exact value match；callTree 返回非空完整调用树。 |
+
+本路径是 Live-Verified Composite / Cross-Run Composite：拓扑与性能来自 micro run `20260707-0400-micro-shape-scope-validation`，recent request -> trace -> callTree 来自上一轮 vertical slice。它表达协议兼容的可执行链路，不声称这些阶段来自一次不中断的连续用户操作。
 
 Live run audit note：`/Users/wangrundong/Downloads/live.zip` 中的 run `20260707-0200-business-system-vertical-slice` 已只读审计。该 run 有 7 条 request-log、7 个 response 文件、summary 中 7 条 request，final report 覆盖 LIVE-001..LIVE-007；编号完整。`LIVE-002-response.json` business code 为 `INTERNAL`，但 `request-log.jsonl` 与 `live-run-summary.json` 误标 `SUCCESS`。`final-report.md` 的业务系统 fingerprint 与 summary/preflight hash 规则不一致；application fingerprint 一致。zip 中没有 `LIVE-xxx-request.json`，因此 exact request body 仍不能审计。`actionGuid.value == traceGuid.value` 仅记录为本次 live sample 观察，不建立永久语义等价、fallback 或自动互换规则。
 
 ## Live Evidence Audit Status
 
-Evidence status 使用 `CONFIRMED`、`SUPPORTED`、`UNRESOLVED`、`CONTRADICTED`。上一轮 live run 的 request count 与 LIVE 编号完整性为 `CONFIRMED`；原始 JSON handoff 中 `LIVE-002` 状态语义、business-system fingerprint 一致性、preflight/request-log/summary sanitization 为 `CONTRADICTED`，已在 gitignored sanitized handoff copy 中修正；observed interval 17.0s 为 `CONFIRMED`。`RUN_END_TIME` 持久化为 `UNRESOLVED`（preflight epoch ms 为 null）；exact request bodies 为 `UNRESOLVED`（缺少 `LIVE-xxx-request.json`）。后续 handoff 必须提供 `LIVE-xxx-request.json` 与 `LIVE-xxx-response.json`，并显式区分 `transport_status`、`business_status` 与 `result`。
-
-## Request-Shape Micro Experiments
-
-| 实验 | Endpoint / Variant | 单次验证目标 | 请求预算 |
-|---|---|---|---:|
-| Micro Experiment A | `ep_post_server_api_graph_querybizdetailgraph#variant_default` | 用历史成功 shape 的 `mergeGraph=1` + `cascadingDisplay=1` presence 验证 live INTERNAL 是否为 request-shape 问题；不重扫 graph API。 | 1 |
-| Micro Experiment B | `ep_post_server_api_application_charts_response#variant_default` | 用历史成功 business-system scope shape `businessType=BIZ_SYSTEM` 验证 empty series 是否为 scope/request-shape 问题；不做参数组合扫描。 | 1 |
+Evidence status 使用 `CONFIRMED`、`SUPPORTED`、`UNRESOLVED`、`CONTRADICTED`。上一轮 live run 的 request count 与 LIVE 编号完整性为 `CONFIRMED`；原始 JSON handoff 中 `LIVE-002` 状态语义、business-system fingerprint 一致性、preflight/request-log/summary sanitization 为 `CONTRADICTED`，已在 gitignored sanitized handoff copy 中修正；observed interval 17.0s 为 `CONFIRMED`。micro run `20260707-0400-micro-shape-scope-validation` 已补齐 `LIVE-001/002-request.json` 与 response pairs，status semantics 为 `PASS`，fingerprint consistency 为 `PASS`，sanitization 为 `PASS`，并通过 `run_end_time.txt` 与 request evidence 证明实际 RUN_END_TIME；剩余 handoff gap 是 `preflight.json` 仍保留 null run-end fields。后续 handoff 必须在 LIVE-001 前完成 sequence: confirm experiment -> generate RUN_END_TIME -> persist into `preflight.json` -> freeze preflight -> execute LIVE-001；`preflight.json` 是执行前最终网络请求快照，不是模板。
 
 ## 跨 Session 组合能力路径
 
 | 阶段 | Session | Capability | 连接级别 | 说明 |
 |---|---|---|---|---|
 | 业务系统拓扑扫描 | `01-business-system-top-down` | `list_business_systems` -> `read_business_topology` | VERIFIED CONNECTION | 同 Session 内业务系统、应用和调用边有连续请求证据。 |
-| 应用深入指标 | `02-application-deep-dive` | `read_application_overview` -> `read_performance_timeseries` -> `list_recent_requests` / `list_transactions` / `list_external_calls` | PROTOCOL-COMPATIBLE | 与 01 使用同类 `server-api` Endpoint 和相同对象类型；不是一次真实连续操作。 |
+| 应用深入指标 | `02-application-deep-dive` + `20260707-0400-micro-shape-scope-validation` | `read_application_overview` -> `read_performance_timeseries` -> `list_recent_requests` / `list_transactions` / `list_external_calls` | LIVE-VERIFIED COMPOSITE | `application/charts/response` 的 business-system response-time series shape 已 live-confirmed；与 01 使用同类 `server-api` Endpoint 和相同对象类型，但不是一次真实连续操作。 |
 | 近期请求到 Trace | `live_evidence_round_2_2026-07-07` | `list_recent_requests` -> `get_trace_detail` -> `get_trace_call_tree` | LIVE-VERIFIED CONNECTION | `responseList.content[].actionId` 直接进入 trace/detail，detail 输出 `actionGuid` 与 `data.id(traceId)` 进入 callTree。 |
 | 告警到 Trace | `03-alarm-to-trace` | `list_alarm_events` -> `read_alarm_event_detail` -> `resolve_action_context` -> `get_trace_detail` -> `get_trace_call_tree` | VERIFIED CONNECTION WITH GAPS | 同 Session 内存在告警、运行对象身份桥梁和 Trace 深挖链路；剩余缺口只指向 transaction/actionItemList 的冷启动 `actionId` 来源。 |
 | 写能力证据保存 | `04/05/06` | `manage_business_settings` / `manage_anomaly_detection_policy` / `manage_alarm_rules` | EVIDENCE PRESERVED | 写能力保留为 Endpoint Contract 与 Capability 证据；不再作为正式业务 Recipe，不参与自动执行。 |
