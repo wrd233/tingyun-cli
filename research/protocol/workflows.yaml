@@ -84,19 +84,19 @@
         "ep_post_server_api_webaction_charts_throught",
         "ep_post_server_api_webaction_charts_error"
       ],
-      "semantic": "每个 metric 需保留 scope/semantic/aggregation/unit/time_context/shape，不跨 endpoint 合并统计口径。",
+      "semantic": "每个 metric 需保留 scope/semantic/aggregation/unit/time_context/shape，不跨 endpoint 合并统计口径。application/charts/response 的历史成功 shape 含 businessType=BIZ_SYSTEM；省略字段若只返回空 series，只能说明 request layer accepted omission，不能证明 businessType 语义 optional。",
       "verification": "VERIFIED"
     },
     {
       "id": "list_recent_requests",
-      "title": "近期请求统计清单",
+      "title": "近期 Action / 请求摘要排名",
       "inputs": [
         "bizSystemId",
         "time_context",
         "ranking dimension from response/throughput/error lists"
       ],
       "outputs": [
-        "ranked request/action summaries",
+        "ranked action/request summary items",
         "request count / response / throughput / error list envelopes",
         "topN overview when returned",
         "action_id from responseList content[] for direct get_trace_detail entry"
@@ -106,7 +106,7 @@
         "ep_post_server_api_webaction_list_throughtlist",
         "ep_post_server_api_webaction_list_errorlist"
       ],
-      "semantic": "responseList 的 recent-request item 已 live-verified 可通过 content[].actionId 直接进入 get_trace_detail；throughtList/errorList 只保留统计清单能力，不能自动继承该 trace 血缘。",
+      "semantic": "responseList.content[] 表达窗口内 Action / Request Ranking Summary，而不是单次 request instance；其中 actionId 已 live-verified 可进入 get_trace_detail 并解析到具体 Trace。throughtList/errorList 只保留统计清单能力，不能自动继承该 trace 血缘。",
       "verification": "VERIFIED"
     },
     {
@@ -283,13 +283,17 @@
         "instanceId",
         "duration",
         "headers/data field inventory",
+        "timeline",
+        "trace-local topology",
+        "serviceFlow/requestServiceFlow evidence",
+        "embedded exceptions and embedded stack when present",
         "actionGuid for get_trace_call_tree",
         "traceId from response data.id for get_trace_call_tree"
       ],
       "uses": [
         "ep_post_server_api_action_trace_detail"
       ],
-      "semantic": "已验证入口至少包括 list_recent_requests.responseList content[].actionId，以及既有观察到的 traceGuid/actionGuid identity；当前 live-observed request shape 中 actionId 足以读取 detail。detail 输出 actionGuid 与 data.id(traceId) 供 callTree 精确消费。",
+      "semantic": "已验证入口至少包括 list_recent_requests.responseList content[].actionId，以及既有观察到的 traceGuid/actionGuid identity；当前 live-observed request shape 中 actionId 足以读取 detail。detail 输出 actionGuid 与 data.id(traceId) 供 callTree 精确消费。Trace Detail 内嵌 timeline、trace-local topology、serviceFlow/requestServiceFlow、exceptions 和部分 stack evidence；这些不替代业务系统整体拓扑或独立 stackTraces endpoint。",
       "verification": "VERIFIED"
     },
     {

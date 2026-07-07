@@ -5,6 +5,15 @@
 
 `research/sources/live/` 预留给运行验证机器上的 live evidence 原始材料，目录内容 local-only，不提交 Git。该目录不得保存 Authorization、Cookie、Token 或其他可用凭证；协议文件只引用稳定 run identity（例如 `live_evidence_round_2_2026-07-07`）和字段血缘摘要。若 raw evidence 不在当前 Codex workspace，不创建空文件或伪造迁移，只记录 raw evidence local-only on validation host / durable migration pending。
 
+Sanitized handoff v1 最小要求：
+- 每个请求同时保存 `LIVE-xxx-request.json` 与 `LIVE-xxx-response.json`；request 文件至少包含 method、path、query、sanitized body、parameter sources，不保存认证 Header。
+- 请求状态必须区分 `transport_status`、`business_status` 与最终 `result`；HTTP 成功但业务 `INTERNAL` 不能写成整体 SUCCESS。
+- fingerprint 规则固定为同一 raw identity -> 同一 normalized UTF-8 string -> SHA-256 -> 当前约定长度短 fingerprint；不添加前后空格或额外前缀。
+- live run 开始前必须持久化非 null `RUN_END_TIME`，包含 ISO8601 与 epoch ms（如相关），并区分 `configured_min_sleep_seconds` 与 `observed_min_request_interval_seconds`。
+- `live-run-summary.json`、`final-report.md`、`request-log.jsonl` 不得包含真实业务系统名、应用名、bizSystemId、applicationId、actionId、actionGuid、traceGuid、traceId、IP、Hostname、Token、Cookie 或 Authorization。
+
+2026-07-07 local audit note: `/Users/wangrundong/Downloads/live.zip` was inspected in a temporary directory only. It contains 7 response files and no request files. The audit found complete LIVE-001..LIVE-007 numbering, a JSON status conflict for the INTERNAL topology response, one business-system fingerprint mismatch between summary and final report, raw target identity leakage in preflight/request-log/summary, observed 17s request intervals, and null persisted RUN_END_TIME. Corrected sanitized handoff copies were generated under gitignored `research/sources/live/20260707-0200-business-system-vertical-slice/sanitized/`; raw response evidence was not modified.
+
 ## Session ZIP 处理记录
 | 整理目录 | 原始包名 | Session 名称 | Session ID | 文件数 | 处理状态 | SHA-256 |
 |---|---:|---|---|---:|---|---|

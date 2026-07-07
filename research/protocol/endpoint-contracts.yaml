@@ -16353,6 +16353,13 @@
               "request_body_ref": "evidence/requests/request-0124-request-5b0f0bf4c31a.txt",
               "response_body_ref": "evidence/responses/request-0124-response-f149cd60705c.json",
               "role": "representative_observed_request"
+            },
+            {
+              "session": "03-alarm-to-trace",
+              "request_ref": "request-0476",
+              "request_body_ref": "evidence/requests/request-0476-request-09f11fbff884.txt",
+              "response_body_ref": "evidence/responses/request-0476-response-e06809d420e1.json",
+              "role": "trace_detail_rich_evidence_sample"
             }
           ]
         }
@@ -16975,6 +16982,55 @@
             "types": [
               "string"
             ]
+          },
+          {
+            "path": "data.topology",
+            "types": [
+              "object"
+            ]
+          },
+          {
+            "path": "data.topology.nodes",
+            "types": [
+              "array"
+            ]
+          },
+          {
+            "path": "data.topology.lines",
+            "types": [
+              "array"
+            ]
+          },
+          {
+            "path": "data.serviceFlow",
+            "types": [
+              "object"
+            ]
+          },
+          {
+            "path": "data.requestServiceFlow",
+            "types": [
+              "object"
+            ]
+          },
+          {
+            "path": "data.exceptions",
+            "types": [
+              "array"
+            ]
+          },
+          {
+            "path": "data.exceptions[].stack",
+            "types": [
+              "array"
+            ]
+          },
+          {
+            "path": "data.timeLine.subTimeLines[].errors[].stack",
+            "types": [
+              "array",
+              "null"
+            ]
           }
         ],
         "business_success_observed": true
@@ -17000,6 +17056,41 @@
           "downstream_consumer": "ep_post_server_api_action_trace_calltree request body traceId",
           "verification": "LIVE_VERIFIED_EXACT_MATCH",
           "evidence_ref": "live_evidence_round_2_2026-07-07"
+        },
+        {
+          "field": "data.topology",
+          "semantic": "trace_local_topology",
+          "verification": "OBSERVED_SESSION_EVIDENCE",
+          "evidence_ref": "02-application-deep-dive request-0111/request-0268 and 03-alarm-to-trace request-0476",
+          "note": "Trace-local topology from trace/detail; does not replace business-system runtime topology."
+        },
+        {
+          "field": "data.serviceFlow",
+          "semantic": "trace_service_flow",
+          "verification": "OBSERVED_SESSION_EVIDENCE",
+          "evidence_ref": "02-application-deep-dive request-0111/request-0268 and 03-alarm-to-trace request-0476",
+          "note": "Observed non-empty service flow shape inside trace/detail."
+        },
+        {
+          "field": "data.requestServiceFlow",
+          "semantic": "trace_request_service_flow",
+          "verification": "OBSERVED_SESSION_EVIDENCE",
+          "evidence_ref": "02-application-deep-dive request-0111/request-0268 and 03-alarm-to-trace request-0476",
+          "note": "Observed non-empty request service flow shape inside trace/detail."
+        },
+        {
+          "field": "data.exceptions",
+          "semantic": "embedded_exception_evidence",
+          "verification": "OBSERVED_SESSION_EVIDENCE",
+          "evidence_ref": "02-application-deep-dive request-0111/request-0268 and 03-alarm-to-trace request-0476",
+          "note": "Embedded exceptions observed in trace/detail; separate from detail/exceptions endpoint."
+        },
+        {
+          "field": "data.exceptions[].stack",
+          "semantic": "embedded_stack_evidence",
+          "verification": "OBSERVED_SESSION_EVIDENCE",
+          "evidence_ref": "02-application-deep-dive request-0111/request-0268 and 03-alarm-to-trace request-0476",
+          "note": "Embedded stack observed in trace/detail; does not close independent stackTraces endpoint gap."
         }
       ],
       "pagination": {
@@ -17067,6 +17158,13 @@
           "role": "accept actionId and produce callTree identities",
           "scope": "business-system-scoped responseList -> trace/detail -> callTree sample; no live requests run in this pass",
           "raw_evidence": "raw evidence local-only on validation host; durable migration pending"
+        },
+        {
+          "session": "03-alarm-to-trace",
+          "request_ref": "request-0476",
+          "request_body_ref": "evidence/requests/request-0476-request-09f11fbff884.txt",
+          "response_body_ref": "evidence/responses/request-0476-response-e06809d420e1.json",
+          "role": "trace_detail_rich_evidence_sample"
         }
       ]
     },
@@ -20114,6 +20212,17 @@
           "document": "application-and-microservice-api.pdf",
           "page": 56,
           "section": "2.3.2.5       响应时间"
+        }
+      ],
+      "request_shape_audit": [
+        {
+          "id": "live_empty_series_scope_audit_2026_07_07",
+          "evidence_status": "SUPPORTED_EMPTY_AND_UNRESOLVED_EXACT_SHAPE",
+          "historical_success_shape": "form body includes bizSystemId, businessType=BIZ_SYSTEM, timePeriod, endTime, lang; no applicationId/applicationIds observed in this contract variant",
+          "live_shape": "request-log parameter sources show target bizSystemId, RUN_END_TIME, timePeriod=30, and businessType determined by trial; exact LIVE-004-request.json is absent, so final body and businessType value are unauditable",
+          "businessType_semantics": "historical success used businessType=BIZ_SYSTEM; live evidence does not prove omission or semantic optionality because request body is missing",
+          "micro_experiment": "Micro Experiment B: one read-only POST using variant_default historical business-system scope with businessType=BIZ_SYSTEM and fixed RUN_END_TIME; stop after first response",
+          "live_response": "LIVE-004-response.json has business code 200 and data.series length 0 while LIVE-005 responseList has totalElements=5"
         }
       ]
     },
@@ -46895,6 +47004,17 @@
           "document": "application-and-microservice-api.pdf",
           "page": 42,
           "section": "2.3.2.1   业务系统拓扑图"
+        }
+      ],
+      "request_shape_audit": [
+        {
+          "id": "live_internal_shape_audit_2026_07_07",
+          "evidence_status": "CONTRADICTED_STATUS_AND_UNRESOLVED_SHAPE",
+          "historical_success_shape": "form body includes bizSystemId, timePeriod, endTime, mergeGraph, cascadingDisplay, lang; observed mergeGraph values 1 and 0 with cascadingDisplay=1",
+          "live_shape": "request-log parameter sources show target bizSystemId, RUN_END_TIME, and timePeriod=30; exact LIVE-002-request.json is absent, so mergeGraph/cascadingDisplay presence is unauditable",
+          "minimal_difference_to_validate": "Use historical graph discriminator presence (mergeGraph=1 plus cascadingDisplay=1) because the live request shape cannot prove these fields were present",
+          "micro_experiment": "Micro Experiment A: one read-only POST to this endpoint using variant_default and historical field presence for the target business system and fixed RUN_END_TIME; stop after first response",
+          "live_response": "LIVE-002-response.json business code is INTERNAL; request-log and live-run-summary incorrectly record result SUCCESS, while final-report request audit says INTERNAL error"
         }
       ]
     },

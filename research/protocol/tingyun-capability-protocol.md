@@ -39,11 +39,11 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 
 ### 性能与运行指标
 
-核心 Metric 保留最小统计身份：`scope`、`semantic`、`aggregation`、`unit`、`time_context`、`shape`。导出文件证明用户可见统计语义，例如 P50/P75/P95/P99、吞吐率、请求数、错误率、慢次数、异常次数，但不反推 Wire 字段或排序参数。运行对象清单不再合并为单一 Capability：近期请求统计、事务、服务接口、外部调用和组件操作分别按真实 Endpoint 边界建模。
+核心 Metric 保留最小统计身份：`scope`、`semantic`、`aggregation`、`unit`、`time_context`、`shape`。导出文件证明用户可见统计语义，例如 P50/P75/P95/P99、吞吐率、请求数、错误率、慢次数、异常次数，但不反推 Wire 字段或排序参数。运行对象清单不再合并为单一 Capability：近期请求统计、事务、服务接口、外部调用和组件操作分别按真实 Endpoint 边界建模。`application/charts/response` 的历史成功 shape 包含 `businessType=BIZ_SYSTEM`；省略该字段若只返回空 series，不能证明它语义上 optional。
 
 ### 问题溯源
 
-已观察到告警入口、Action/运行对象身份桥梁、近期请求入口和已知 Trace 入口。当前最强 live-verified 链路是 business-system-scoped recent request path：`getBusinessTree` 发现业务系统，`responseList.content[].actionId` 精确进入 `trace/detail.request.actionId`，`trace/detail.response.actionGuid` 与 `trace/detail.response.data.id(traceId)` 精确进入 `callTree`。Stack、Agent Context 和日志搜索作为 Trace 深挖补充能力记录；剩余缺口是 `list_transactions` / `actionItemList` 的冷启动 `actionId` 来源，而不是 `responseList` 近期请求链路。
+已观察到告警入口、Action/运行对象身份桥梁、近期请求入口和已知 Trace 入口。当前最强 live-verified 链路是 business-system-scoped recent request path：`getBusinessTree` 发现业务系统，`responseList.content[].actionId` 精确进入 `trace/detail.request.actionId`，`trace/detail.response.actionGuid` 与 `trace/detail.response.data.id(traceId)` 精确进入 `callTree`。`responseList.content[]` 是窗口化 Action / Request Ranking Summary，不是单次 request instance；它通过 actionId 解析到具体 Trace。Trace Detail 自身还含 timeline、trace-local topology、serviceFlow/requestServiceFlow、embedded exceptions 和部分 embedded stack evidence；这些不替代业务系统整体拓扑或独立 `detail/stackTraces` endpoint。Stack、Agent Context 和日志搜索作为 Trace 深挖补充能力记录；剩余缺口是 `list_transactions` / `actionItemList` 的冷启动 `actionId` 来源，而不是 `responseList` 近期请求链路。
 
 ## 能力覆盖矩阵
 
@@ -76,6 +76,7 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 | 性能与运行指标 | 分位值 | VERIFIED | `read_performance_timeseries` | `scan_business_system` | `` |
 | 性能与运行指标 | Top / Ranking | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
 | 性能与运行指标 | 请求统计清单 | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
+| 性能与运行指标 | Application response series scope | UNRESOLVED | `read_performance_timeseries` | `scan_business_system` | `gap_application_charts_response_scope_shape` |
 | 问题溯源 | 告警入口 | VERIFIED | `list_alarm_events` | `alarm_to_trace` | `` |
 | 问题溯源 | Action / 运行对象身份 | PARTIALLY_VERIFIED | `resolve_action_context` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
 | 问题溯源 | 运行对象入口 | PARTIALLY_VERIFIED | `list_transactions` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
@@ -110,7 +111,18 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 | Trace Detail | `POST /server-api/action/trace/detail` request `actionId` | 当前 live-observed request shape 中，`actionId` 足以作为 detail 身份输入，无需先经 action/get 或 action/alias 转换为 actionGuid。 |
 | Call Tree | `trace/detail.response.actionGuid` -> `callTree.request.actionGuid`; `trace/detail.response.data.id` -> `callTree.request.traceId` | 两个下游参数均为 exact value match；callTree 返回非空完整调用树。 |
 
-Live run audit note：round 2 声明 total live requests = 5；当前 Codex workspace 没有 raw evidence，能在协议中确认的 proven lineage 为 LIVE-001、LIVE-002、LIVE-004、LIVE-005，LIVE-003 detail unavailable in current Codex workspace。报告中曾出现 `1616` 与 `1619` 两个 application ID；当前证据不足以解释差异，因此已验证主链保持为 business-system-scoped，不把任何 applicationId 写成必需血缘。`actionGuid.value == traceGuid.value` 仅记录为本次 live sample 观察，不建立永久语义等价、fallback 或自动互换规则。
+Live run audit note：`/Users/wangrundong/Downloads/live.zip` 中的 run `20260707-0200-business-system-vertical-slice` 已只读审计。该 run 有 7 条 request-log、7 个 response 文件、summary 中 7 条 request，final report 覆盖 LIVE-001..LIVE-007；编号完整。`LIVE-002-response.json` business code 为 `INTERNAL`，但 `request-log.jsonl` 与 `live-run-summary.json` 误标 `SUCCESS`。`final-report.md` 的业务系统 fingerprint 与 summary/preflight hash 规则不一致；application fingerprint 一致。zip 中没有 `LIVE-xxx-request.json`，因此 exact request body 仍不能审计。`actionGuid.value == traceGuid.value` 仅记录为本次 live sample 观察，不建立永久语义等价、fallback 或自动互换规则。
+
+## Live Evidence Audit Status
+
+Evidence status 使用 `CONFIRMED`、`SUPPORTED`、`UNRESOLVED`、`CONTRADICTED`。上一轮 live run 的 request count 与 LIVE 编号完整性为 `CONFIRMED`；原始 JSON handoff 中 `LIVE-002` 状态语义、business-system fingerprint 一致性、preflight/request-log/summary sanitization 为 `CONTRADICTED`，已在 gitignored sanitized handoff copy 中修正；observed interval 17.0s 为 `CONFIRMED`。`RUN_END_TIME` 持久化为 `UNRESOLVED`（preflight epoch ms 为 null）；exact request bodies 为 `UNRESOLVED`（缺少 `LIVE-xxx-request.json`）。后续 handoff 必须提供 `LIVE-xxx-request.json` 与 `LIVE-xxx-response.json`，并显式区分 `transport_status`、`business_status` 与 `result`。
+
+## Request-Shape Micro Experiments
+
+| 实验 | Endpoint / Variant | 单次验证目标 | 请求预算 |
+|---|---|---|---:|
+| Micro Experiment A | `ep_post_server_api_graph_querybizdetailgraph#variant_default` | 用历史成功 shape 的 `mergeGraph=1` + `cascadingDisplay=1` presence 验证 live INTERNAL 是否为 request-shape 问题；不重扫 graph API。 | 1 |
+| Micro Experiment B | `ep_post_server_api_application_charts_response#variant_default` | 用历史成功 business-system scope shape `businessType=BIZ_SYSTEM` 验证 empty series 是否为 scope/request-shape 问题；不做参数组合扫描。 | 1 |
 
 ## 跨 Session 组合能力路径
 
