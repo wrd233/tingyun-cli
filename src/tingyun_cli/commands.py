@@ -6,7 +6,12 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from .candidates import is_inspect_call_tree_eligible, is_investigate_trace_eligible, normalize_candidates
+from .candidates import (
+    is_inspect_call_tree_eligible,
+    is_investigate_trace_eligible,
+    normalize_candidates,
+    resolve_verified_trace_action_type,
+)
 from .config import Config
 from .http import ExecutionResult, HttpExecutor
 from .storage import RunStore
@@ -14,10 +19,12 @@ from .time_context import resolve_time_context
 
 
 def plan_collect(store: RunStore, source_run_id: str, source_item_ref: str, time_context_value: str) -> Dict[str, Any]:
-    source = _resolve_source(store, source_run_id, source_item_ref)
-    time_context = resolve_time_context(time_context_value)
+    try:
+        source, time_context = _validate_collect_inputs(store, source_run_id, source_item_ref, time_context_value)
+    except Blocked as exc:
+        return _local_blocked_plan("collect", str(exc))
     if source["kind"] != "business_system_candidate":
-        return {"schema_version": 1, "command": "collect", "status": "BLOCKED", "reason_code": "INVALID_SOURCE_KIND"}
+        return _local_blocked_plan("collect", "INVALID_SOURCE_KIND")
     return {
         "schema_version": 1,
         "command": "collect",
@@ -25,7 +32,7 @@ def plan_collect(store: RunStore, source_run_id: str, source_item_ref: str, time
         "source": {"run_id": source_run_id, "item_ref": source_item_ref, "kind": source["kind"]},
         "time_context": time_context,
         "planned_steps": ["identity", "topology", "performance", "candidates"],
-        "expected_live_request_count": 3,
+        "expected_logical_request_count": 3,
     }
 
 
@@ -44,23 +51,20 @@ def run_collect(
         "source_item_ref": source_item_ref,
         "time_context": time_context_value,
     }
+    try:
+        source, time_context = _validate_collect_inputs(store, source_run_id, source_item_ref, time_context_value, clock=clock)
+    except Blocked as exc:
+        return _blocked_run(store, "collect", "COLLECT", str(exc), requested_intent=requested_intent)
+    if source["kind"] != "business_system_candidate":
+        return _blocked_run(store, "collect", "COLLECT", "INVALID_SOURCE_KIND", requested_intent=requested_intent)
+    biz_system_id = source.get("wire_identity", {}).get("bizSystemId")
+    if not biz_system_id:
+        return _blocked_run(store, "collect", "COLLECT", "MISSING_WIRE_IDENTITY", requested_intent=requested_intent)
+    if _auth_required_but_missing(config, transport):
+        return _blocked_run(store, "collect", "COLLECT", "AUTH_NOT_CONFIGURED", requested_intent=requested_intent)
     if not store.acquire_live_lock():
         return _blocked_run(store, "collect", "COLLECT", "LIVE_EXECUTION_BUSY", requested_intent=requested_intent)
     try:
-        try:
-            source = _resolve_source(store, source_run_id, source_item_ref)
-        except (FileNotFoundError, KeyError):
-            return _blocked_run(store, "collect", "COLLECT", "INVALID_SOURCE_REF", requested_intent=requested_intent)
-        if source["kind"] != "business_system_candidate":
-            return _blocked_run(store, "collect", "COLLECT", "INVALID_SOURCE_KIND", requested_intent=requested_intent)
-        try:
-            time_context = resolve_time_context(time_context_value, clock or __import__("time"))
-        except ValueError:
-            return _blocked_run(store, "collect", "COLLECT", "UNSUPPORTED_TIME_SHAPE", requested_intent=requested_intent)
-        biz_system_id = source.get("wire_identity", {}).get("bizSystemId")
-        if not biz_system_id:
-            return _blocked_run(store, "collect", "COLLECT", "MISSING_WIRE_IDENTITY", requested_intent=requested_intent)
-
         run = store.begin_run(command="collect", run_type="COLLECT")
         preflight = {
             "schema_version": 1,
@@ -71,7 +75,7 @@ def run_collect(
             "time_context": time_context,
             "recipe": "core_collect",
             "safety": {"result": "ALLOW_READ_ONLY"},
-            "expected_live_request_count": 3,
+            "expected_logical_request_count": 3,
             "requested_intent": requested_intent,
         }
         store.write_json(run.path / "preflight.json", preflight)
@@ -109,6 +113,8 @@ def run_discover(
     transport=None,
     clock=None,
 ) -> Dict[str, Any]:
+    if _auth_required_but_missing(config, transport):
+        return _blocked_run(store, "discover", "DISCOVERY", "AUTH_NOT_CONFIGURED", requested_intent={"query": query})
     if not store.acquire_live_lock():
         return _blocked_run(store, "discover", "DISCOVERY", "LIVE_EXECUTION_BUSY", requested_intent={"query": query})
     try:
@@ -120,7 +126,7 @@ def run_discover(
             "query": query,
             "time_context": time_context,
             "safety": {"result": "ALLOW_READ_ONLY"},
-            "expected_live_request_count": 1,
+            "expected_logical_request_count": 1,
         })
         executor = HttpExecutor(store=store, run=run, config=config, transport=transport, clock=clock or __import__("time"))
         result = executor.execute(_business_tree_request(time_context))
@@ -159,20 +165,15 @@ def run_investigate(
         "source_item_ref": source_item_ref,
         "action": action,
     }
+    try:
+        source = _validate_investigate_inputs(store, source_run_id, source_item_ref, action)
+    except Blocked as exc:
+        return _blocked_run(store, "investigate", "INVESTIGATION", str(exc), requested_intent=requested_intent)
+    if _auth_required_but_missing(config, transport):
+        return _blocked_run(store, "investigate", "INVESTIGATION", "AUTH_NOT_CONFIGURED", requested_intent=requested_intent)
     if not store.acquire_live_lock():
         return _blocked_run(store, "investigate", "INVESTIGATION", "LIVE_EXECUTION_BUSY", requested_intent=requested_intent)
     try:
-        try:
-            source = _resolve_source(store, source_run_id, source_item_ref)
-        except (FileNotFoundError, KeyError):
-            return _blocked_run(store, "investigate", "INVESTIGATION", "INVALID_SOURCE_REF", requested_intent=requested_intent)
-        if action not in source.get("available_actions", []):
-            return _blocked_run(store, "investigate", "INVESTIGATION", "INVALID_ACTION", requested_intent=requested_intent)
-        if action not in {"investigate_trace", "inspect_call_tree"}:
-            return _blocked_run(store, "investigate", "INVESTIGATION", "ACTION_NOT_STABLE", requested_intent=requested_intent)
-        if not _action_identity_complete(source, action):
-            return _blocked_run(store, "investigate", "INVESTIGATION", "ACTION_IDENTITY_INCOMPLETE", requested_intent=requested_intent)
-
         source_manifest = _read_manifest(store, source_run_id)
         time_context = source_manifest.get("time_context") or resolve_time_context("last_30m", clock or __import__("time"))
         run = store.begin_run(command="investigate", run_type="INVESTIGATION")
@@ -183,7 +184,7 @@ def run_investigate(
             "action": action,
             "time_context": time_context,
             "safety": {"result": "ALLOW_READ_ONLY"},
-            "expected_live_request_count": 1,
+            "expected_logical_request_count": 1,
             "requested_intent": requested_intent,
         })
         executor = HttpExecutor(store=store, run=run, config=config, transport=transport, clock=clock or __import__("time"))
@@ -222,23 +223,70 @@ def export_sanitized_run(store: RunStore, run_id: str, output_dir: Path) -> Dict
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
-    safe_files = {"manifest.json", "preflight.json", "coverage.json", "run-meta.json"}
-    for path in source.rglob("*.json"):
-        rel = path.relative_to(source)
-        if rel.parts[0] == "raw":
-            if not rel.name.startswith("request-"):
-                continue
-        if rel.parts[0] == "evidence" or rel.name in safe_files:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            sanitized = _sanitize(data, root=store.root)
-            target = output_dir / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps(sanitized, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    export_files = _exportable_json_files(source)
+    pseudonyms = _PseudonymState()
+    loaded = []
+    for path, rel in export_files:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        _collect_identity_values(data, pseudonyms)
+        loaded.append((rel, data))
+    for rel, data in loaded:
+        sanitized = _sanitize(data, root=store.root, pseudonyms=pseudonyms)
+        target = output_dir / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(sanitized, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
     return {"schema_version": 1, "command": "sanitized_export", "status": "SUCCESS", "output_path": str(output_dir)}
 
 
 class Blocked(Exception):
     pass
+
+
+def _local_blocked_plan(command: str, reason_code: str) -> Dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "command": command,
+        "status": "BLOCKED",
+        "reason_code": reason_code,
+        "live_request_count": 0,
+    }
+
+
+def _validate_collect_inputs(
+    store: RunStore,
+    source_run_id: str,
+    source_item_ref: str,
+    time_context_value: str,
+    *,
+    clock=None,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    try:
+        source = _resolve_source(store, source_run_id, source_item_ref)
+    except (FileNotFoundError, KeyError) as exc:
+        raise Blocked("INVALID_SOURCE_REF") from exc
+    try:
+        time_context = resolve_time_context(time_context_value, clock or __import__("time"))
+    except ValueError as exc:
+        raise Blocked("UNSUPPORTED_TIME_SHAPE") from exc
+    return source, time_context
+
+
+def _validate_investigate_inputs(store: RunStore, source_run_id: str, source_item_ref: str, action: str) -> Dict[str, Any]:
+    try:
+        source = _resolve_source(store, source_run_id, source_item_ref)
+    except (FileNotFoundError, KeyError) as exc:
+        raise Blocked("INVALID_SOURCE_REF") from exc
+    if action not in source.get("available_actions", []):
+        raise Blocked("INVALID_ACTION")
+    if action not in {"investigate_trace", "inspect_call_tree"}:
+        raise Blocked("ACTION_NOT_STABLE")
+    if not _action_identity_complete(source, action):
+        raise Blocked("ACTION_IDENTITY_INCOMPLETE")
+    return source
+
+
+def _auth_required_but_missing(config: Config, transport) -> bool:
+    return transport is None and not config.auth_value
 
 
 def _blocked_run(
@@ -397,8 +445,7 @@ def _business_tree_request(time_context: Dict[str, Any]) -> Dict[str, Any]:
 def _trace_detail_request(source: Dict[str, Any], time_context: Dict[str, Any]) -> Dict[str, Any]:
     identity = source.get("wire_identity", {})
     endpoint = time_context["endpoint"]
-    raw_action_type = identity.get("requestType") or identity.get("actionType") or ""
-    action_type = raw_action_type.split(",")[0].strip() if "," in raw_action_type else raw_action_type
+    action_type = resolve_verified_trace_action_type(identity.get("requestType") or identity.get("actionType") or "")
     return {
         "endpoint_id": "ep_post_server_api_action_trace_detail",
         "method": "POST",
@@ -860,7 +907,19 @@ def _receipt(command: str, status: str, run_id: str, manifest_path: Path) -> Dic
     }
 
 
-def _sanitize(value: Any, *, root: Path) -> Any:
+def _exportable_json_files(source: Path) -> List[Tuple[Path, Path]]:
+    safe_files = {"manifest.json", "preflight.json", "coverage.json", "run-meta.json"}
+    files: List[Tuple[Path, Path]] = []
+    for path in sorted(source.rglob("*.json")):
+        rel = path.relative_to(source)
+        if rel.parts[0] == "raw" and not rel.name.startswith("request-"):
+            continue
+        if rel.parts[0] == "evidence" or rel.parts[0] == "raw" or rel.name in safe_files:
+            files.append((path, rel))
+    return files
+
+
+def _sanitize(value: Any, *, root: Path, pseudonyms: Optional["_PseudonymState"] = None) -> Any:
     secret_parts = ("authorization", "cookie", "token", "password", "secret")
     identity_keys = {
         "wire_identity",
@@ -883,9 +942,7 @@ def _sanitize(value: Any, *, root: Path) -> Any:
         "bizSystemName",
         "actionName",
     }
-    id_value_keys = {"bizSystemId", "applicationId", "actionId", "systemId", "instanceId", "actionGuid", "traceId"}
-    pseudonyms = _PseudonymState()
-    _collect_identity_values(value, pseudonyms)
+    pseudonyms = pseudonyms or _PseudonymState()
     return _sanitize_with_state(value, root=root, secret_parts=secret_parts, identity_keys=identity_keys,
                                name_label_keys=name_label_keys, pseudonyms=pseudonyms)
 
@@ -912,11 +969,23 @@ class _PseudonymState:
 
 
 def _collect_identity_values(value: Any, state: _PseudonymState) -> None:
+    id_value_keys = {"bizSystemId", "applicationId", "actionId", "systemId", "instanceId", "actionGuid", "traceId"}
+    name_label_keys = {"display_name", "name", "applicationName", "bizSystemName", "actionName"}
     if isinstance(value, dict):
         for key, nested in value.items():
-            if key in ("bizSystemId", "applicationId", "actionId", "systemId", "instanceId", "actionGuid", "traceId"):
+            if key in id_value_keys:
                 if isinstance(nested, (str, int)) and nested not in (None, ""):
                     state.pseudonym_for_id(str(nested))
+            if key in name_label_keys:
+                if isinstance(nested, str) and nested:
+                    prefix_map = {
+                        "display_name": "BS",
+                        "bizSystemName": "BS",
+                        "applicationName": "APP",
+                        "actionName": "ACTION",
+                        "name": "NAME",
+                    }
+                    state.pseudonym_for_name(nested, prefix_map.get(key, "NAME"))
             _collect_identity_values(nested, state)
     elif isinstance(value, list):
         for item in value:
@@ -954,9 +1023,11 @@ def _sanitize_with_state(value: Any, *, root: Path, secret_parts: Tuple[str, ...
         text = value.replace(str(root), "<local-path>")
         if any(part in text.lower() for part in secret_parts):
             return "<redacted>"
+        if "/web/" in text or text.startswith("http://") or text.startswith("https://"):
+            return "<redacted-internal-url>"
+        for original, pseudonym in sorted(pseudonyms.id_map.items(), key=lambda item: len(item[0]), reverse=True):
+            text = text.replace(original, pseudonym)
         return text
     if isinstance(value, (int, float)):
-        text = str(value)
-        if text in pseudonyms.id_map:
-            return pseudonyms.id_map[text]
+        return value
     return value

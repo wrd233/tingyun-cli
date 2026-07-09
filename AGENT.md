@@ -12,6 +12,7 @@
 6. 如需本地排序或筛选，使用 `inspect candidates all/top/filter`。
 7. 只从 Evidence Item 的 `available_actions` 中 exact 选择 Action。
 8. 用 `investigate --source-run-id ... --source-item-ref ... --action ...` 生成 Child Run。
+9. Candidate 的 `source_run_id` 指向创建它的 Collect Run。直接复制 `inspect` 输出中的 `source_run_id + item_ref`，不要改成父 Discovery Run。
 
 ## 必须遵守
 
@@ -21,6 +22,8 @@
 - 不要把 Candidate 的 `row_count == 1000` 当作全量证明。
 - 不要把 CLI 的 `SUCCESS/PARTIAL/BLOCKED` 当作诊断结论。
 - 不要要求 CLI 输出报告或根因判断。
+- 不要把 `error_rate` 当 ratio；CLI 中 5% 写作 `--value 5`。
+- 不要把 Trace proof 当成 Navigation proof。`BG` 和 `TX,IF` 可有 `investigate_trace`，但没有独立 route proof 时没有内部 URL。
 
 ## 读取顺序
 
@@ -52,4 +55,8 @@ raw/*.json
 
 SQL、Stack、Logs、NoSQL、MQ 等保留在研究协议中；未进入 Runtime Stable Surface 前不要调用。
 
-即使旧 Run 中某个 Item 手工包含 `available_actions`，`investigate` 仍会在发起 HTTP 前重新校验 action-specific wire identity；不完整则生成 `BLOCKED / ACTION_IDENTITY_INCOMPLETE`，且 `live_request_count = 0`。
+`investigate_trace` 的 requestType 只使用已验证 resolver：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。未知 composite 不猜测。
+
+即使旧 Run 中某个 Item 手工包含 `available_actions`，`investigate` 仍会在发起 HTTP 前重新校验 action-specific wire identity 和 resolver；不完整或未验证则生成 `BLOCKED / ACTION_IDENTITY_INCOMPLETE`，且 `live_request_count = 0`。
+
+默认生产 transport 缺少 `TINGYUN_AUTHORIZATION` 时，Live command 会在 HTTP 前返回 `BLOCKED / AUTH_NOT_CONFIGURED`。CLI startup 会自动冻结 confirmed stale `.inflight/` Run，但不会冻结 active owner PID。

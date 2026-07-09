@@ -193,8 +193,8 @@ def test_candidate_with_composite_tx_type_gets_actions():
     )
     item = artifact["data"]["items"][0]
     assert item["available_actions"] == ["investigate_trace"]
-    assert "links" in item
-    assert item["navigation"]["status"] == "SUCCESS"
+    assert "links" not in item
+    assert item["navigation"] == {"status": "MISSING", "reason": "URL_NOT_VERIFIED"}
 
 
 def test_candidate_with_bg_type_gets_actions():
@@ -209,8 +209,8 @@ def test_candidate_with_bg_type_gets_actions():
     )
     item = artifact["data"]["items"][0]
     assert item["available_actions"] == ["investigate_trace"]
-    assert "links" in item
-    assert item["navigation"]["status"] == "SUCCESS"
+    assert "links" not in item
+    assert item["navigation"] == {"status": "MISSING", "reason": "URL_NOT_VERIFIED"}
 
 
 def test_candidate_with_unknown_request_type_has_no_actions():

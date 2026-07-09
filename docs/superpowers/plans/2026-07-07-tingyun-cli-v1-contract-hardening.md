@@ -162,7 +162,7 @@ Derive only `/web/server/action/overview/{bizSystemId}/{applicationId}/{actionId
 - Modify: `docs/sanitized-export.md`
 
 **Interfaces:**
-- Produces docs describing `Runtime-contract-hardened` / `v1 Runtime Candidate` status and the next controlled Live Golden Path without claiming Live-Proven status.
+- Historical plan note: this pass originally produced docs for `Runtime-contract-hardened` status before later Live validation; current status is maintained in README and validation-analysis reports.
 
 - [x] **Step 1: Update docs**
 

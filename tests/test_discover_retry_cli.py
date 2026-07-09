@@ -39,6 +39,37 @@ class FakeClock:
         self.now += seconds
 
 
+def _write_discovery_run(store):
+    run = store.begin_run(command="discover", run_type="DISCOVERY")
+    store.write_json(run.path / "evidence" / "targets.json", {
+        "schema_version": 1,
+        "kind": "targets",
+        "status": "SUCCESS",
+        "data": {
+            "items": [{
+                "item_ref": "item-0001",
+                "kind": "business_system_candidate",
+                "display_name": "synthetic",
+                "wire_identity": {"bizSystemId": "biz-1"},
+            }]
+        },
+    })
+    store.finalize_run(
+        run,
+        manifest={
+            "schema_version": 1,
+            "run_id": run.run_id,
+            "run_type": "DISCOVERY",
+            "overall": "SUCCESS",
+            "artifacts": [{"kind": "targets", "path": "evidence/targets.json", "status": "SUCCESS"}],
+            "coverage_ref": "coverage.json",
+            "live_request_count": 1,
+        },
+        coverage={"schema_version": 1, "overall": "SUCCESS", "artifacts": {"targets": {"status": "SUCCESS"}}},
+    )
+    return run.run_id
+
+
 def test_discover_creates_discovery_run_with_real_candidate_items(tmp_path):
     store = RunStore(tmp_path)
     transport = SequenceTransport([{
@@ -117,11 +148,12 @@ def test_executor_auth_recovery_replays_same_read_request_once(tmp_path):
 
 def test_live_lock_conflict_creates_blocked_run_without_http(tmp_path):
     store = RunStore(tmp_path)
+    source_run_id = _write_discovery_run(store)
     (tmp_path / "live.lock").write_text(json.dumps({"pid": os.getpid()}), encoding="utf-8")
     receipt = run_collect(
         store=store,
         config=Config(base_url="https://tingyun.example", data_root=tmp_path, min_request_interval_seconds=0),
-        source_run_id="missing",
+        source_run_id=source_run_id,
         source_item_ref="item-0001",
         time_context_value="last_30m",
         transport=SequenceTransport([{"status": 500}]),

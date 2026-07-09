@@ -17,13 +17,13 @@ Manifest 是控制面和 Artifact Index。它记录 Run 类型、来源、时间
 
 Manifest 不包含业务诊断摘要、推荐、根因或报告内容。
 
-`live_request_count` 表示该 Run 实际持久化的 raw request attempt 数。一次 transient retry 或 auth replay 都算新的 attempt。
+`live_request_count` 表示该 Run 实际持久化的 raw request attempt 数。一次 transient retry 或 auth replay 都算新的 attempt。Preflight 中的 `expected_logical_request_count` 表示计划逻辑请求数，不能与 actual attempts 混用。
 
 `INTERRUPTED` Run 冻结时会保留 `raw_summary`，并在 preflight 已存在时带出安全的 `source`、`action` 和 `time_context`。
 
 ## preflight.json
 
-Preflight 是当前一次 live command 的冻结执行边界。第一条真实请求前写入，执行开始后不再修改。
+Preflight 是当前一次 live command 的冻结执行边界。第一条真实请求前写入，执行开始后不再修改。新 Run 使用 `expected_logical_request_count`；旧 Run 中的 `expected_live_request_count` 只作为历史字段读取，不改写。
 
 ## coverage.json
 
@@ -66,5 +66,7 @@ call_tree.json
 ```
 
 Candidate 主来源是 `POST /server-api/graph/query/overview?request_overview`。`candidates.json` 保留实际获得的全部行，不做二次 Top N 裁剪。
+
+Candidate `source_run_id` 属于创建它的 Collect Run。Agent 可直接复制 `inspect` 输出中的 `source_run_id + item_ref` 进入 `investigate`，不需要替换为父 Discovery Run。
 
 `trace.json` 会提升 Trace Detail 中已验证的主要域：summary、timeline、trace-local topology、service flow、request service flow、embedded exceptions、embedded stack evidence 和 context。embedded stack 只表示 Trace Detail 内嵌证据，不关闭独立 `stackTraces` endpoint gap。

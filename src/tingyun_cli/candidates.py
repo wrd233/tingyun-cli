@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import operator
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 ALLOWED_CANDIDATE_METRICS = {
@@ -105,19 +105,17 @@ def inspect_candidates_filter(run_path: Path, *, metric: str, operator: str, val
     return {"schema_version": 1, "run_id": Path(run_path).name, "metric": metric, "operator": operator, "value": value, "items": items}
 
 
-_PROVEN_TRACE_REQUEST_TYPES = {"WEB", "TX", "BG"}
-_PROVEN_URL_REQUEST_TYPES = {"WEB", "TX", "BG"}
+_VERIFIED_TRACE_ACTION_TYPES = {
+    "WEB": "WEB",
+    "TX": "TX",
+    "BG": "BG",
+    "TX,IF": "TX",
+}
+_VERIFIED_ROUTE_REQUEST_TYPES = {"WEB", "TX"}
 
 
-def _split_request_types(request_type: str):
-    return [t.strip() for t in request_type.split(",") if t.strip()]
-
-
-def _first_proven_type(request_type: str, proven: set) -> str:
-    for t in _split_request_types(request_type):
-        if t in proven:
-            return t
-    return ""
+def resolve_verified_trace_action_type(request_type: str) -> Optional[str]:
+    return _VERIFIED_TRACE_ACTION_TYPES.get((request_type or "").strip())
 
 
 def _candidate_item(index: int, row: Dict[str, Any], source_run_id: str, scope: Dict[str, Any], raw_ref: str) -> Dict[str, Any]:
@@ -148,10 +146,7 @@ def is_investigate_trace_eligible(item: Dict[str, Any]) -> bool:
     identity = item.get("wire_identity", {})
     if not all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId", "requestType")):
         return False
-    request_type = identity.get("requestType", "")
-    if request_type in _PROVEN_TRACE_REQUEST_TYPES:
-        return True
-    return bool(_first_proven_type(request_type, _PROVEN_TRACE_REQUEST_TYPES))
+    return resolve_verified_trace_action_type(identity.get("requestType", "")) is not None
 
 
 def _is_url_eligible(item: Dict[str, Any]) -> bool:
@@ -159,9 +154,7 @@ def _is_url_eligible(item: Dict[str, Any]) -> bool:
     if not all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId")):
         return False
     request_type = identity.get("requestType", "")
-    if request_type in _PROVEN_URL_REQUEST_TYPES:
-        return True
-    return bool(_first_proven_type(request_type, _PROVEN_URL_REQUEST_TYPES))
+    return request_type in _VERIFIED_ROUTE_REQUEST_TYPES
 
 
 def is_inspect_call_tree_eligible(item: Dict[str, Any]) -> bool:

@@ -16,6 +16,13 @@ generic request
 
 凭据从环境读取，不通过普通参数传入。Run、Raw、Evidence、stdout、`runs.jsonl` 和 sanitized export 都不得保存 Secret。
 
+默认生产 transport 缺少 `TINGYUN_AUTHORIZATION` 时，Live command 在 HTTP 前阻断：
+
+```text
+BLOCKED / AUTH_NOT_CONFIGURED
+live_request_count = 0
+```
+
 ## Serial Execution
 
 单 Run 内业务请求完全串行。默认 start-to-start 间隔为 2 秒。
@@ -29,6 +36,12 @@ BLOCKED / LIVE_EXECUTION_BUSY
 ```
 
 且不访问 HTTP。
+
+确定性本地校验先于 Live Lock。无效 source、item、action 或 time shape 不会被 lock 冲突掩盖。
+
+## Startup Recovery
+
+CLI 启动时只扫描 `.inflight/`。active owner PID 仍存活时保持原样；确认 stale 的 inflight Run 冻结为 `INTERRUPTED`，只保留 raw summary 和安全 preflight intent，不访问 HTTP、不刷新 token、不重新归一化历史 Raw。
 
 ## Retry
 

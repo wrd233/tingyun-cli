@@ -100,13 +100,13 @@
       "outputs": [
         "candidate dataset rows",
         "actionId/applicationId/systemId wire identity",
-        "response/P50/P75/P95/P99/throughput/count/error/slow/exception metrics",
+        "response/P50/P75/P95/P99/throughput/count/error_rate_percent/slow/exception metrics",
         "row_count and conservative completeness boundary"
       ],
       "uses": [
         "ep_post_server_api_graph_query_overview"
       ],
-      "semantic": "POST /server-api/graph/query/overview?request_overview 是 v1 Primary Stable Candidate Source。真实 Session 中多组同 scope/time List API 与 Export 对照候选集合和行数高度一致；List API 额外保留 actionId/applicationId 等继续调查身份。返回恰好 1000 行只证明观察到边界，不证明 FULL。",
+      "semantic": "POST /server-api/graph/query/overview?request_overview 是 v1 Primary Stable Candidate Source。真实 Session 中多组同 scope/time List API 与 Export 对照候选集合和行数高度一致；List API 额外保留 actionId/applicationId 等继续调查身份。errorRate 的 normalized runtime 单位是 percent。返回恰好 1000 行只证明观察到边界，不证明 FULL。",
       "verification": "VERIFIED"
     },
     {
@@ -128,7 +128,7 @@
         "ep_post_server_api_webaction_list_throughtlist",
         "ep_post_server_api_webaction_list_errorlist"
       ],
-      "semantic": "responseList.content[] 表达窗口内 Action / Request Ranking Summary，而不是单次 request instance；其中 actionId 已 live-verified 可进入 get_trace_detail 并解析到具体 Trace。throughtList/errorList 只保留统计清单能力，不能自动继承该 trace 血缘。",
+      "semantic": "responseList.content[] 表达窗口内 Action / Request Ranking Summary，而不是单次 request instance；其中 actionId 已 live-verified 可进入 get_trace_detail 并解析到具体 Trace。throughtList/errorList 只保留统计清单能力，不能自动继承该 trace 血缘。该能力保留在研究协议中；当前 v1 production runtime safety surface 不执行 responseList。",
       "verification": "VERIFIED"
     },
     {
@@ -294,6 +294,7 @@
         "applicationId when present in observed trace context",
         "actionType",
         "action_id from list_recent_requests responseList content[] (live-verified observed request shape)",
+        "action_id from v1 request_overview Candidate with verified actionType mapping",
         "traceGuid or actionGuid",
         "queryTimestamp when required",
         "time_context"
@@ -315,7 +316,7 @@
       "uses": [
         "ep_post_server_api_action_trace_detail"
       ],
-      "semantic": "已验证入口至少包括 list_recent_requests.responseList content[].actionId，以及既有观察到的 traceGuid/actionGuid identity；当前 live-observed request shape 中 actionId 足以读取 detail。detail 输出 actionGuid 与 data.id(traceId) 供 callTree 精确消费。Trace Detail 内嵌 timeline、trace-local topology、serviceFlow/requestServiceFlow、exceptions 和部分 stack evidence；这些不替代业务系统整体拓扑或独立 stackTraces endpoint。",
+      "semantic": "已验证入口至少包括 v1 request_overview Candidate actionId + verified actionType mapping、list_recent_requests.responseList content[].actionId，以及既有观察到的 traceGuid/actionGuid identity。v1 runtime 只编码 WEB->WEB、TX->TX、BG->BG、TX,IF->TX；未知 composite withheld。detail 输出 actionGuid 与 data.id(traceId) 供 callTree 精确消费。Trace Detail 内嵌 timeline、trace-local topology、serviceFlow/requestServiceFlow、exceptions 和部分 stack evidence；这些不替代业务系统整体拓扑或独立 stackTraces endpoint。",
       "verification": "VERIFIED"
     },
     {
@@ -532,7 +533,8 @@
         "发现真实 dependency type 才读取对应 dependency 能力",
         "服务接口和组件操作作为可选扩展读取；未验证能力只记录 gap，不补链路",
         "list_transactions/actionItemList 仅在已有验证来源的 actionId 时执行；冷启动 actionId 来源未证明时跳过并记录 gap_runtime_to_trace_list。",
-        "Candidate Dataset 固定使用 request_overview List API；Export/Download 只作为研究验证或未来 file-native source，不作为 Runtime fallback。"
+        "Candidate Dataset 固定使用 request_overview List API；Export/Download 只作为研究验证或未来 file-native source，不作为 Runtime fallback。",
+        "v1 production runtime 不执行 responseList；responseList 只保留为研究协议和 recent-request path 证据。"
       ]
     },
     {
@@ -624,7 +626,7 @@
         }
       ],
       "rules": [
-        "responseList.content[].actionId 可作为 live-verified 入口直接进入 get_trace_detail；无需先通过 resolve_action_context",
+        "v1 request_overview Candidate 使用 exact verified actionType resolver 进入 get_trace_detail；responseList.content[].actionId 也可作为 research live-verified 入口直接进入 get_trace_detail；无需先通过 resolve_action_context",
         "detail/callTree/exceptions 的参数链必须来自同一 trace evidence 或明确进入 gap",
         "actionGuid.value == traceGuid.value 只记录为本次 live sample 观察，不建立语义等价、fallback 或自动互换规则",
         "stack、agent context、log search 是 optional enrichment；PARTIALLY_VERIFIED 不作为 VERIFIED 核心链必需步骤",

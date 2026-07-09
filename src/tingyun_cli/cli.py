@@ -47,6 +47,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     config = load_config(args.config, data_root=args.data_root)
     store = RunStore(config.data_root)
+    store.freeze_stale_inflight()
     if args.command == "discover":
         result = run_discover(store=store, config=config, query=args.query)
     elif args.command == "collect":

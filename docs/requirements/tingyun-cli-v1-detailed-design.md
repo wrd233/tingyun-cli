@@ -1782,7 +1782,7 @@ value
 
 ```text
 p99 > 5000
-error_rate > 0.05
+error_rate > 5
 ```
 
 不支持：
@@ -2528,8 +2528,8 @@ Blocked：
       "unit": "ms"
     },
     "error_rate": {
-      "value": 0.05,
-      "unit": "ratio"
+      "value": 5,
+      "unit": "percent"
     }
   },
   "wire_identity": {
@@ -2750,14 +2750,18 @@ Child Run
 
 # 44. 2026-07-07 Runtime Contract Hardening 实现澄清
 
-本节不改变前文设计历史，只记录 v1 Runtime Candidate 的落地约束：
+本节不改变前文设计历史，只记录 v1 Runtime 的落地约束：
 
 - Runtime Stable Surface 仍锁定为 `investigate_trace` 与 `inspect_call_tree`，不新增 Action family。
 - `live_request_count` 解释为实际发送并持久化的 raw request attempt 数；retry 与 auth replay 都会增加该计数。
+- Preflight 使用 `expected_logical_request_count` 表示计划逻辑请求数；旧 `expected_live_request_count` 仅作为历史字段读取。
 - Normalized Artifact 的 `derived_from` 指向最终支撑事实或失败判断的 raw response/error，而不是固定序号。
 - `FAILED` 与 `EMPTY` 严格分离：HTTP/transport/business failure 是 `FAILED`，成功无域数据才是 `EMPTY`。
 - Auth Recovery 为 Run-scoped，每个 Live Run 最多一次；transient retry 仅限网络瞬态异常与 HTTP 502/503/504。
-- `available_actions` 必须满足 action-specific exact identity，且 `investigate` 发请求前会重新校验。
+- `available_actions` 必须满足 action-specific exact identity，且 `investigate` 发请求前会重新校验。`investigate_trace` 只使用 verified resolver：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`；未知 composite withheld。
+- Trace proof 与 Navigation proof 分离；`BG` / `TX,IF` 的 Trace success 不自动产生内部 URL。
+- 缺少 `TINGYUN_AUTHORIZATION` 的默认生产 Live command 在 HTTP 前阻断为 `BLOCKED / AUTH_NOT_CONFIGURED`。
+- CLI startup 会冻结 confirmed stale `.inflight/` Run 为 `INTERRUPTED`，active owner PID 不冻结。
 - Trace Detail 归一化提升 summary、timeline、trace-local topology、service flow、request service flow、exceptions、embedded stack 和 context，但不声称独立 `stackTraces` endpoint 已验证。
 - Candidate verified URL 只从已验证 `/web/server/action/overview/{bizSystemId}/{applicationId}/{actionId}` route 和完整 identity 派生。
-- 当前实现状态是 `Runtime-contract-hardened` / `v1 Runtime Candidate`，准备进入第一轮受控 Live Golden Path；该 Live Golden Path 完成前不称为 Live-Proven。
+- 当前实现状态是 `Golden Path Live-Validated`，范围限定为已测试目标、时间窗口和 runtime version；不声明 Production-ready 或 all-domain Live-Proven。

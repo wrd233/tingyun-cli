@@ -117,13 +117,13 @@ validation task:
 
 ## gap_runtime_to_trace_list: transaction/actionItemList actionId 冷启动来源未证明
 
-- 已知事实：`list_recent_requests` / `responseList` -> `trace/detail` -> `callTree` 已由 `live_evidence_round_2_2026-07-07` 证明，不再属于本 Gap。`actionItemList` 在缺少 `actionId` 参数时返回 INTERNAL，说明 transaction/actionItemList 路径仍需要前置 `actionId`。
+- 已知事实：v1 Golden Path 已通过 request_overview Candidate -> `trace/detail` -> `callTree` 验证，且 runtime 只使用 exact actionType resolver：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。`list_recent_requests` / `responseList` -> `trace/detail` -> `callTree` 也已由 `live_evidence_round_2_2026-07-07` 证明，但它保留为研究协议路径，不属于当前 production runtime safety surface。`actionItemList` 在缺少 `actionId` 参数时返回 INTERNAL，说明 transaction/actionItemList 路径仍需要前置 `actionId`。
 - 缺失证据：Application / transaction context 如何获得 `actionItemList` 所需的冷启动 `actionId` 尚未证明；可能来自 URL、页面状态、前置请求或其他 observed READ response，但当前协议不能假设来源。
-- 对能力影响：`alarm_to_trace` 中通过 transaction/actionItemList 枚举 Trace 的路径仍为 PARTIALLY_VERIFIED；`list_recent_requests` -> Trace 子路径已升级为 VERIFIED。
+- 对能力影响：不影响 v1 Golden Path；`alarm_to_trace` 中通过 transaction/actionItemList 枚举 Trace 的路径仍为 PARTIALLY_VERIFIED；`list_recent_requests` -> Trace 子路径已升级为 VERIFIED。
 - live_evidence_round_1 (2026-07-07): PARTIAL — 4 次只读请求；确认 `actionItemList` 缺少 `actionId` 时失败，`responseList` 无需 `actionId` 但当时目标业务系统无活跃数据。Raw evidence local-only on validation host; durable migration pending。
 - 下一次 Capture 要补什么：从 Application / transaction UI 冷启动进入 `actionItemList`，抓取 `actionId` 的来源（URL 参数、页面状态、前置请求或其他 observed READ response），再进入 Trace。
 - 成功判定条件：证明 `actionItemList` request `actionId` 的上游来源，并证明该路径如何继续进入 trace detail request parameter。
-- 禁止假设：不得用相似 actionId 补 traceGuid；不得把 `responseList.content[].actionId` 的成功样本泛化为 transaction/actionItemList 的冷启动来源。
+- 禁止假设：不得用相似 actionId 补 traceGuid；不得把 request_overview Candidate 或 `responseList.content[].actionId` 的成功样本泛化为 transaction/actionItemList 的冷启动来源。
 - related_capabilities:
   - `resolve_action_context`
   - `list_transactions`
@@ -140,7 +140,7 @@ validation task:
 
 validation task:
 - goal: 证明 transaction/actionItemList 的冷启动 `actionId` 来源。
-- starting context: `resolve_action_context` 与 `list_transactions` (actionItemList)；`list_recent_requests` (responseList) -> `get_trace_detail` -> `get_trace_call_tree` 已 VERIFIED，仅作为已排除路径。
+- starting context: `resolve_action_context` 与 `list_transactions` (actionItemList)；v1 request_overview Candidate -> Trace 和 `list_recent_requests` (responseList) -> Trace 均已 VERIFIED，仅作为已排除路径。
 - exploration target: 在 UI 中从 Application / transaction context 进入 webaction/actionItemList，抓取 actionId 的 UI 来源。
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
 - success criteria: 证明 actionItemList 的 actionId 参数来源（URL/前置请求/页面状态/其他 observed READ response）。

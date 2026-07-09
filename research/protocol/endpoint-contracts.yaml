@@ -46701,7 +46701,7 @@
             "responseP99": "metrics.p99.ms",
             "throughput": "metrics.throughput.per_second",
             "totalCount": "metrics.total_count.count",
-            "errorRate": "metrics.error_rate.ratio",
+            "errorRate": "metrics.error_rate.percent",
             "errorTotalCount": "metrics.error_count.count",
             "slowCount": "metrics.slow_count.count",
             "exceptionCountTotal": "metrics.exception_count.count",

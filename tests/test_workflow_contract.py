@@ -79,7 +79,7 @@ def test_plan_collect_resolves_source_without_writing_new_run(tmp_path):
     after = sorted(str(path.relative_to(tmp_path)) for path in tmp_path.rglob("*"))
     assert before == after
     assert plan["status"] == "READY"
-    assert plan["expected_live_request_count"] == 3
+    assert plan["expected_logical_request_count"] == 3
     assert plan["source"]["item_ref"] == "item-0001"
 
 

@@ -1,6 +1,6 @@
 # 听云能力协议基线
 
-本协议基线主体来自本地离线证据：6 组 AI-ready Session、2 份官方 API PDF、12 个导出文件；另吸收 2026-07-07 已完成的两轮低频只读 live validation 结论。本文档不包含 Cookie、Token、Authorization 或内部 origin，不实现 CLI、HTTP 客户端、写操作执行器或 Agent/LLM 系统。旧 CLI/catalog/snapshot/命令树未作为约束。
+本协议基线主体来自本地离线证据：6 组 AI-ready Session、2 份官方 API PDF、12 个导出文件；另吸收 2026-07-07 已完成的低频只读 live validation 结论。当前 v1 runtime 状态为 `Golden Path Live-Validated`，范围限定为已测试目标、时间窗口和 runtime version；不声明 Production-ready 或 all-domain Live-Proven。本文档不包含 Cookie、Token、Authorization 或内部 origin，不实现 CLI、HTTP 客户端、写操作执行器或 Agent/LLM 系统。旧 CLI/catalog/snapshot/命令树未作为约束。
 
 ## 覆盖基线
 
@@ -41,11 +41,13 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 
 核心 Metric 保留最小统计身份：`scope`、`semantic`、`aggregation`、`unit`、`time_context`、`shape`。导出文件证明用户可见统计语义，例如 P50/P75/P95/P99、吞吐率、请求数、错误率、慢次数、异常次数，但不反推 Wire 字段或排序参数。运行对象清单不再合并为单一 Capability：近期请求统计、事务、服务接口、外部调用、组件操作和 v1 Candidate Dataset 分别按真实 Endpoint 边界建模。`application/charts/response` 的 business-system scope shape 已由 live run `20260707-0400-micro-shape-scope-validation` 确认：`businessType="BIZ_SYSTEM"` 可返回响应时间、P50、P80、P95、P99 五组 ms series；该结论不证明 `businessType` 可省略，也不外推到 application scope 或其他 chart endpoint。
 
-Candidate Dataset 的 Primary Stable Source 已确定为 `POST /server-api/graph/query/overview?request_overview`。真实 Session `session-acce84d0-9163-41a5-b151-9bec4b904b5f` 中四组 request_overview List API 返回 819、862、1000、1000 行，字段包含 `actionId`、`applicationId`、`systemId`、`actionName`、`applicationName`、P50/P75/P95/P99、平均响应、吞吐、请求数、错误、慢请求和异常计数。对应 Export 只保留展示字段和指标，不能保留完整执行身份，因此 v1 Runtime 不再把 Export/Download 作为 Candidate fallback。返回 1000 行只记录为已观察边界，不证明全量。
+Candidate Dataset 的 Primary Stable Source 已确定为 `POST /server-api/graph/query/overview?request_overview`。真实 Session `session-acce84d0-9163-41a5-b151-9bec4b904b5f` 中四组 request_overview List API 返回 819、862、1000、1000 行，字段包含 `actionId`、`applicationId`、`systemId`、`actionName`、`applicationName`、P50/P75/P95/P99、平均响应、吞吐、请求数、错误、慢请求和异常计数。`errorRate` 的 normalized runtime 单位是 percent，不是 ratio。对应 Export 只保留展示字段和指标，不能保留完整执行身份，因此 v1 Runtime 不再把 Export/Download 作为 Candidate fallback。返回 1000 行只记录为已观察边界，不证明全量。
+
+Candidate -> Trace 的 v1 runtime resolver 只编码已验证映射：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。同一 Candidate identity 的受控比较显示 `actionType="TX,IF"` 返回 200/404 no-match，而 `actionType="TX"` 成功返回 Trace identity；因此不能使用通用 `split(",")` 规则，也不能把 `IF,TX`、`BG,IF`、`TX,BG` 等未知 composite 外推为可执行。Trace proof 与 Navigation proof 独立；`BG` 和 `TX,IF` 的 Trace success 不证明 `/web/server/action/overview/...` route。
 
 ### 问题溯源
 
-已观察到告警入口、Action/运行对象身份桥梁、近期请求入口和已知 Trace 入口。当前最强 live-verified 链路是 business-system-scoped recent request path：`getBusinessTree` 发现业务系统，`responseList.content[].actionId` 精确进入 `trace/detail.request.actionId`，`trace/detail.response.actionGuid` 与 `trace/detail.response.data.id(traceId)` 精确进入 `callTree`。`responseList.content[]` 是窗口化 Action / Request Ranking Summary，不是单次 request instance；它通过 actionId 解析到具体 Trace。Trace Detail 自身还含 timeline、trace-local topology、serviceFlow/requestServiceFlow、embedded exceptions 和部分 embedded stack evidence；这些不替代业务系统整体拓扑或独立 `detail/stackTraces` endpoint。Stack、Agent Context 和日志搜索作为 Trace 深挖补充能力记录；剩余缺口是 `list_transactions` / `actionItemList` 的冷启动 `actionId` 来源，而不是 `responseList` 近期请求链路。
+已观察到告警入口、Action/运行对象身份桥梁、近期请求入口、Candidate direct Trace 入口和已知 Trace 入口。当前 v1 runtime Golden Path 是 `discover -> collect(request_overview candidates) -> inspect candidates -> investigate_trace -> inspect_call_tree`。研究协议中同时保留 business-system-scoped recent request path：`getBusinessTree` 发现业务系统，`responseList.content[].actionId` 精确进入 `trace/detail.request.actionId`，`trace/detail.response.actionGuid` 与 `trace/detail.response.data.id(traceId)` 精确进入 `callTree`。`responseList.content[]` 是窗口化 Action / Request Ranking Summary，不是单次 request instance；它通过 actionId 解析到具体 Trace，但不属于当前 production runtime safety surface。Trace Detail 自身还含 timeline、trace-local topology、serviceFlow/requestServiceFlow、embedded exceptions 和部分 embedded stack evidence；这些不替代业务系统整体拓扑或独立 `detail/stackTraces` endpoint。Stack、Agent Context 和日志搜索作为 Trace 深挖补充能力记录；剩余缺口是 `list_transactions` / `actionItemList` 的冷启动 `actionId` 来源，而不是 v1 Golden Path。
 
 ## 能力覆盖矩阵
 
@@ -112,8 +114,10 @@ Candidate Dataset 的 Primary Stable Source 已确定为 `POST /server-api/graph
 | Business System | `GET /server-api/data/business/getBusinessTree` | 发现业务系统身份；核心链按 business system scope 描述，不把未解释的 applicationId 写成必需输入。 |
 | Business Topology | `POST /server-api/graph/queryBizDetailGraph` with `mergeGraph="1"` and `cascadingDisplay="1"` | live run `20260707-0400-micro-shape-scope-validation` 确认该完整字符串形态可执行，返回 12 个 structural nodes 和 27 条 time-windowed runtime edges；edge metrics 保留 wire spelling `response`、`throught`、`error`。不声明 `mergeGraph` 单字段导致上一轮 INTERNAL。 |
 | Business-System Response Series | `POST /server-api/application/charts/response` with `businessType="BIZ_SYSTEM"` | 同一 micro run 确认 business-system scope 响应时间序列可执行，返回响应时间、P50、P80、P95、P99 五组 30 点 ms series，overview avg=22、max=160585。 |
+| Same-Run Core Collect Raw Correction | first controlled Golden Path collect raw responses | 本地 reprocessing 证明旧 normalized `EMPTY` 是 normalizer 缺口：当前 topology normalizer 从同一 Raw 得到 SUCCESS、13 nodes、38 edges；performance normalizer 得到 SUCCESS、overview present、response_avg/P50/P80/P95/P99 各 30 点。旧 Run 不改写。 |
 | Recent Request List | `POST /server-api/webaction/list/responseList` -> `response.data.content[].actionId` | `actionId` 是已验证的 recent-request item 输出；本结论只覆盖 responseList live sample，不自动扩展到 throughtList/errorList。 |
-| Trace Detail | `POST /server-api/action/trace/detail` request `actionId` | 当前 live-observed request shape 中，`actionId` 足以作为 detail 身份输入，无需先经 action/get 或 action/alias 转换为 actionGuid。 |
+| Candidate Trace Detail | `POST /server-api/action/trace/detail` request `actionId` + verified `actionType` | v1 runtime only: `WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。未知 composite withheld。 |
+| Recent Request Trace Detail | `POST /server-api/action/trace/detail` request `actionId` | research/protocol path: 当前 live-observed responseList shape 中，`actionId` 足以作为 detail 身份输入，无需先经 action/get 或 action/alias 转换为 actionGuid。 |
 | Call Tree | `trace/detail.response.actionGuid` -> `callTree.request.actionGuid`; `trace/detail.response.data.id` -> `callTree.request.traceId` | 两个下游参数均为 exact value match；callTree 返回非空完整调用树。 |
 
 本路径是 Live-Verified Composite / Cross-Run Composite：拓扑与性能来自 micro run `20260707-0400-micro-shape-scope-validation`，recent request -> trace -> callTree 来自上一轮 vertical slice。它表达协议兼容的可执行链路，不声称这些阶段来自一次不中断的连续用户操作。

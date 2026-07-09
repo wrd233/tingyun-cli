@@ -1396,10 +1396,12 @@ discover
 
 - `SUCCESS / EMPTY / FAILED / BLOCKED / SKIPPED` 保持原语义；实现上明确把 HTTP/transport/business failure 归为 `FAILED`，只把成功无域数据归为 `EMPTY`。
 - `PARTIAL` 表示 Run 已 finalized 且至少一个 required Artifact 失败或阻断；成功 sibling Artifact 必须保留。
-- `live_request_count` 是实际 raw request attempt 数。
+- `live_request_count` 是实际 raw request attempt 数；Preflight 的 `expected_logical_request_count` 是计划逻辑请求数。
 - retry 只覆盖网络瞬态异常与 HTTP 502/503/504；HTTP 500 默认不自动重试。
 - Auth Recovery 是 Run-scoped，每个 Live Run 最多一次。
 - `derived_from` 必须指向最终支撑 raw response/error；retry/auth replay 不能继续指向早先失败 attempt。
-- `available_actions` 的 exact identity 门槛在生成 Evidence Item 和执行 `investigate` 前都要校验。
-- Verified URL 只允许 `LIVE_OBSERVED` 或 `DERIVED_FROM_VERIFIED_ROUTE`，当前 Runtime 只派生已验证 action overview route。
-- 本轮后项目状态为 `Runtime-contract-hardened` / `v1 Runtime Candidate`，不是 Live-Proven。
+- `available_actions` 的 exact identity 门槛在生成 Evidence Item 和执行 `investigate` 前都要校验；`investigate_trace` 只使用 verified resolver：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。
+- Trace proof 与 Navigation proof 分离；Verified URL 只允许独立 route proof，`BG` / `TX,IF` 不因 Trace success 自动获得 URL。
+- 默认生产 Live command 缺少 `TINGYUN_AUTHORIZATION` 时在 HTTP 前返回 `BLOCKED / AUTH_NOT_CONFIGURED`。
+- CLI startup 会冻结 confirmed stale `.inflight/` Run 为 `INTERRUPTED`，active owner PID 不冻结。
+- 本轮后项目状态为 `Golden Path Live-Validated`，范围限定为已测试目标、时间窗口和 runtime version；不声明 Production-ready 或 all-domain Live-Proven。

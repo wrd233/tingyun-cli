@@ -8,7 +8,6 @@ STABLE_READ_ENDPOINTS = {
     ("POST", "/server-api/graph/query/overview"),
     ("POST", "/server-api/action/trace/detail"),
     ("POST", "/server-api/action/trace/callTree"),
-    ("POST", "/server-api/webaction/list/responseList"),
 }
 
 

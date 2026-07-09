@@ -72,9 +72,33 @@ CLI 还会在发起 HTTP 前重新校验该 Action 的必要 wire identity：
 ```bash
 tingyun inspect candidates all --run-id run-...
 tingyun inspect candidates top --run-id run-... --metric p99 --limit 10
-tingyun inspect candidates filter --run-id run-... --metric error_rate --operator ">" --value 0.05
+tingyun inspect candidates filter --run-id run-... --metric error_rate --operator ">" --value 5
 ```
 
 `inspect` 是纯本地 JSON 视图，不创建 Run。
 
 `top/filter` 只接受稳定 metric。若当前 Candidate Dataset 的所有行都缺失该 metric，CLI 返回 `LOCAL_ERROR / UNAVAILABLE_METRIC` JSON，而不是对缺省值做误导性排序。
+
+`error_rate` 的稳定单位是 percent。筛选 5% 使用 `--value 5`，不是旧的 ratio-style 小数值。
+
+## Plan-only
+
+`collect --plan-only` 只做本地解析和校验，不创建 Run、不写 `.inflight/`、不写 `runs.jsonl`、不访问 HTTP。无效 source Run、item_ref、source kind 或时间形状会返回：
+
+```json
+{
+  "schema_version": 1,
+  "command": "collect",
+  "status": "BLOCKED",
+  "reason_code": "INVALID_SOURCE_REF",
+  "live_request_count": 0
+}
+```
+
+Ready plan 使用 `expected_logical_request_count`。真实 Run Manifest 的 `live_request_count` 是实际 HTTP attempts，retry/auth replay 会增加它。
+
+## Startup and Auth
+
+每次 CLI startup 会先冻结 confirmed stale `.inflight/` Run 为 `INTERRUPTED`，不会冻结 active owner PID。
+
+默认生产 transport 缺少 `TINGYUN_AUTHORIZATION` 时，`discover` / `collect` / `investigate` 返回 `BLOCKED / AUTH_NOT_CONFIGURED`，且 `live_request_count = 0`。
