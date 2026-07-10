@@ -34,7 +34,10 @@
 | C30 | Raw responses excluded | export filter | source raw | unchanged filter | CLOSED |
 | C31 | internal URLs removed | sanitizer | external URI evidence | source export scan | CLOSED |
 | C32 | actions removed | sanitizer | source actions | unchanged key filter | CLOSED |
-| C33 | minimized safety | six Core paths | donor broad set | exact formal source registry union | CLOSED |
+| C33 | minimized safety | six Core paths | donor broad set / unknown surface fallback | exact Core/Advanced routing; WRITE/UNKNOWN blocked | CLOSED_REPAIRED_2026-07-10 |
 | C34 | Live-Validated wording | README/reports | stale in-progress | qualified final wording | CLOSED |
 | C35 | old Runs immutable | no migration | correction temptation | overlays/local only | CLOSED |
 
+## Runtime integrity re-audit (2026-07-10)
+
+All 35 contracts were re-read against the final checkout and exercised with `PYTHONPATH=<checkout>/src`. C01-C32, C34, and C35 were reverified without behavior changes. C33 had one real regression: any non-`ADVANCED_SOURCE` surface fell through to the Core validator. The repair now accepts only exact `CORE` or `ADVANCED_SOURCE`; `WRITE`, `UNKNOWN`, advanced-as-Core, and Core-as-Advanced are all blocked by regression tests.

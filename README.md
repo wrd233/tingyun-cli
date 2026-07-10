@@ -4,6 +4,13 @@
 
 当前状态：`Core Golden Path Live-Validated + Integrated Investigation Depth`。Live-validated 只限定已测试的 Core 目标、时间窗口和 runtime version；新 Advanced Source Capabilities 依据既有协议证据分级，不声明全部 Live-Proven。
 
+## 四层入口
+
+- **Core Golden Path**：`discover`、`collect`、`inspect candidates`、`investigate`；只读服务端并创建不可变 Run（`inspect` 除外）。
+- **Advanced Read-only Source Surface**：`source ...`；一次一个固定 READ recipe，创建 SOURCE Run。
+- **Local Investigation Depth**：`depth ...`；完全本地，0 HTTP、0 Run。
+- **Workflow Plans**：`depth workflow-plan ...`；只生成确定性计划，不自动执行任何服务端请求。
+
 ## 是什么
 
 - Agent-first：输出稳定 JSON，方便 Agent 调用和读取。

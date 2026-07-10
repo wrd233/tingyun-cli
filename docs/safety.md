@@ -6,6 +6,8 @@ Runtime 只允许已登记的 Stable Read Endpoint。未知路径和写路径会
 
 安全面分为 Core allowlist 与 Advanced Source allowlist。`responseList` 等高级路径不会通过 Core `assert_read_endpoint`；只有带正式 `ADVANCED_SOURCE` recipe 标记且精确出现在 source allowlist 时才能执行。WRITE/UNKNOWN、research-only 和 orphan path 不进入任一生产 allowlist。
 
+Runtime surface 只接受精确 `CORE` 或 `ADVANCED_SOURCE`。任何显式 `WRITE`、`UNKNOWN` 或其他未知 surface 都会在写 Raw request 和调用 transport 之前阻断，不能回退成 Core。
+
 不提供：
 
 ```text

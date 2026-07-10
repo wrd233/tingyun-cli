@@ -1,5 +1,12 @@
 # Agent Operating Guide
 
+## 四层入口
+
+- Core Golden Path：`discover -> collect -> inspect candidates -> investigate_trace -> inspect_call_tree`，其中 Live 命令只读服务端并创建不可变 Run。
+- Advanced Source：`source ...`，一次执行一个显式 READ recipe 并创建 SOURCE Run。
+- Local Investigation Depth：`depth ...`，0 HTTP、0 Run。
+- Workflow Plans：`depth workflow-plan ...`，只输出计划、预算和 blocker，不执行计划。
+
 ## Golden Path
 
 1. 先运行 `discover`，得到 Discovery Run。
