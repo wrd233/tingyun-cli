@@ -25,11 +25,11 @@
 
 **Interfaces:** Pure functions consume mappings/lists and produce schema-versioned dictionaries; they never consume `RunStore`, `Config`, or a transport.
 
-- [ ] Add failing tests proving selection lineage, comparison source refs, local narrowing with zero request attempts, correction overlays, metric status, triage, and deterministic CLI output.
-- [ ] Run focused tests and confirm failures are missing-module/behavior failures.
-- [ ] Implement the smallest adapted local modules; preserve exact timestamps, scope, `source_run_id`, `item_ref`, and source refs.
-- [ ] Run focused tests and the full main suite.
-- [ ] Commit the local primitive slice.
+- [x] Add failing tests proving selection lineage, comparison source refs, local narrowing with zero request attempts, correction overlays, metric status, triage, and deterministic CLI output.
+- [x] Run focused tests and confirm failures are missing-module/behavior failures.
+- [x] Implement the smallest adapted local modules; preserve exact timestamps, scope, `source_run_id`, `item_ref`, and source refs.
+- [x] Run focused tests and the full main suite.
+- [x] Commit the local primitive slice.
 
 ### Task 2: Advanced read-only source runtime
 
@@ -37,11 +37,11 @@
 
 **Interfaces:** `run_source_capability(...)->receipt` validates locally, creates one immutable SOURCE Run, and executes exactly one registry request through `HttpExecutor`.
 
-- [ ] Add failing tests for each source recipe, exact READ allowlist, identity/time/auth-before-lock, provenance, `FAILED`/`EMPTY`, logical-vs-attempt counts, and unchanged Core Collect count.
-- [ ] Confirm focused tests fail for missing source surface.
-- [ ] Implement fixed source recipes and conservative normalizers using current main infrastructure.
-- [ ] Run focused tests and all closure tests.
-- [ ] Commit the advanced source slice.
+- [x] Add failing tests for each source recipe, exact READ allowlist, identity/time/auth-before-lock, provenance, `FAILED`/`EMPTY`, logical-vs-attempt counts, and unchanged Core Collect count.
+- [x] Confirm focused tests fail for missing source surface.
+- [x] Implement fixed source recipes and conservative normalizers using current main infrastructure.
+- [x] Run focused tests and all closure tests.
+- [x] Commit the advanced source slice.
 
 ### Task 3: Workflow plans, protocol, docs, and accounting
 
@@ -49,11 +49,11 @@
 
 **Interfaces:** Workflow plans return deterministic steps, integrated capability status, expected logical request count, budget, blockers, and execute nothing.
 
-- [ ] Add failing tests proving five plan names, zero side effects, deterministic output, and no unavailable capability masquerading as executable.
-- [ ] Implement plans and CLI dispatch, then make focused tests pass.
-- [ ] Synchronize protocol/docs without claiming new sources are Live-Proven.
-- [ ] Complete donor, source, contract, test, and closure matrices with no unresolved row.
-- [ ] Commit documentation and accounting.
+- [x] Add failing tests proving five plan names, zero side effects, deterministic output, and no unavailable capability masquerading as executable.
+- [x] Implement plans and CLI dispatch, then make focused tests pass.
+- [x] Synchronize protocol/docs without claiming new sources are Live-Proven.
+- [x] Complete donor, source, contract, test, and closure matrices with no unresolved row.
+- [x] Commit documentation and accounting.
 
 ### Task 4: Offline closure and Git integration
 
@@ -61,8 +61,8 @@
 
 **Interfaces:** Final main equals origin/main; donor and temporary branches are absent locally/remotely; worktree is clean.
 
-- [ ] Run full pytest, protocol checker, compileall, diff check, fake/local smokes, leak scan, safety exactness, and live-root fingerprint comparison.
-- [ ] Fast-forward local main to the verified integration branch and rerun the full verification set.
-- [ ] Push main and verify local main equals origin/main.
-- [ ] Delete donor remote then local, remove the integration worktree/branch, fetch prune, and verify final branch state.
+- [x] Run full pytest, protocol checker, compileall, diff check, fake/local smokes, leak scan, safety exactness, and live-root fingerprint comparison.
+- [x] Fast-forward local main to the verified integration branch and rerun the full verification set.
+- [x] Push main and verify local main equals origin/main.
+- [x] Delete donor remote then local, remove the integration worktree/branch, fetch prune, and verify final branch state.
 
