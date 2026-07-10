@@ -76,10 +76,13 @@ class HttpExecutor:
         self.auth_recovered = False
 
     def execute(self, request: Dict[str, Any]) -> ExecutionResult:
-        if request.get("runtime_surface") == "ADVANCED_SOURCE":
+        runtime_surface = request.get("runtime_surface", "CORE")
+        if runtime_surface == "CORE":
+            assert_read_endpoint(request["method"], request["path"])
+        elif runtime_surface == "ADVANCED_SOURCE":
             assert_source_read_endpoint(request["method"], request["path"])
         else:
-            assert_read_endpoint(request["method"], request["path"])
+            raise ValueError(f"unsupported runtime surface: {runtime_surface}")
         attempt_refs = []
         attempt = 0
         transient_retried = False
