@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
 from .config import Config
-from .safety import assert_read_endpoint
+from .safety import assert_read_endpoint, assert_source_read_endpoint
 
 
 class UrlLibTransport:
@@ -76,7 +76,10 @@ class HttpExecutor:
         self.auth_recovered = False
 
     def execute(self, request: Dict[str, Any]) -> ExecutionResult:
-        assert_read_endpoint(request["method"], request["path"])
+        if request.get("runtime_surface") == "ADVANCED_SOURCE":
+            assert_source_read_endpoint(request["method"], request["path"])
+        else:
+            assert_read_endpoint(request["method"], request["path"])
         attempt_refs = []
         attempt = 0
         transient_retried = False
@@ -176,6 +179,7 @@ class HttpExecutor:
             "query": request.get("query", {}),
             "body": request.get("body", {}),
             "body_kind": request.get("body_kind", "form"),
+            "runtime_surface": request.get("runtime_surface", "CORE"),
             "metadata": {"headers_saved": False, "secret_headers_omitted": True},
         }
 

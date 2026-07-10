@@ -14,6 +14,17 @@ from .candidates import (
 )
 from .config import Config
 from .http import ExecutionResult, HttpExecutor
+from .source_capabilities import (
+    alarm_event_detail_request,
+    alarm_events_request,
+    alarm_metric_series_request,
+    application_instances_request,
+    external_uri_request,
+    performance_timeseries_requests,
+    recent_request_ranking_request,
+    trace_exceptions_request,
+)
+from .source_normalization import normalize_source
 from .storage import RunStore
 from .time_context import resolve_time_context
 
@@ -216,6 +227,79 @@ def run_investigate(
         store.release_live_lock()
 
 
+def run_source_capability(
+    *,
+    store: RunStore,
+    config: Config,
+    capability: str,
+    time_context_value: str,
+    source_run_id: Optional[str] = None,
+    source_item_ref: Optional[str] = None,
+    ranking: str = "response",
+    transport=None,
+    clock=None,
+) -> Dict[str, Any]:
+    requested_intent = {
+        "capability": capability,
+        "source_run_id": source_run_id,
+        "source_item_ref": source_item_ref,
+        "time_context": time_context_value,
+        "ranking": ranking,
+    }
+    try:
+        source, time_context, request, artifact_name, artifact_kind, metadata = _validate_source_inputs(
+            store,
+            capability,
+            source_run_id,
+            source_item_ref,
+            time_context_value,
+            ranking=ranking,
+            clock=clock,
+        )
+    except Blocked as exc:
+        return _blocked_run(store, "source", "SOURCE", str(exc), requested_intent=requested_intent)
+    if _auth_required_but_missing(config, transport):
+        return _blocked_run(store, "source", "SOURCE", "AUTH_NOT_CONFIGURED", requested_intent=requested_intent)
+    if not store.acquire_live_lock():
+        return _blocked_run(store, "source", "SOURCE", "LIVE_EXECUTION_BUSY", requested_intent=requested_intent)
+    try:
+        run = store.begin_run(command="source", run_type="SOURCE")
+        parent = {"run_id": source_run_id, "item_ref": source_item_ref} if source is not None else None
+        store.write_json(run.path / "preflight.json", {
+            "schema_version": 1,
+            "command": "source",
+            "capability": capability,
+            "source": parent,
+            "time_context": time_context,
+            "recipe": f"advanced_source:{capability}",
+            "safety": {"result": "ALLOW_READ_ONLY", "runtime_surface": "ADVANCED_SOURCE"},
+            "expected_logical_request_count": 1,
+            "requested_intent": requested_intent,
+        })
+        executor = HttpExecutor(store=store, run=run, config=config, transport=transport, clock=clock or __import__("time"))
+        result = executor.execute(request)
+        artifact = _source_artifact(result, artifact_kind, metadata, time_context, run_id=run.run_id)
+        artifacts = {artifact_name: artifact}
+        store.write_json(run.path / "evidence" / artifact_name, artifact)
+        coverage = _coverage_from_artifacts(artifacts)
+        manifest = _manifest(
+            run_id=run.run_id,
+            run_type="SOURCE",
+            command="source",
+            source=parent,
+            time_context=time_context,
+            artifacts=artifacts,
+            coverage=coverage,
+            live_request_count=executor.sequence,
+            action=capability,
+        )
+        manifest["promotion_status"] = "PORTED_ADVANCED_READ_ONLY"
+        path = store.finalize_run(run, manifest=manifest, coverage=coverage)
+        return _receipt("source", manifest["overall"], run.run_id, path / "manifest.json")
+    finally:
+        store.release_live_lock()
+
+
 def export_sanitized_run(store: RunStore, run_id: str, output_dir: Path) -> Dict[str, Any]:
     source = store.run_path(run_id)
     if not source.exists():
@@ -283,6 +367,141 @@ def _validate_investigate_inputs(store: RunStore, source_run_id: str, source_ite
     if not _action_identity_complete(source, action):
         raise Blocked("ACTION_IDENTITY_INCOMPLETE")
     return source
+
+
+def _validate_source_inputs(
+    store: RunStore,
+    capability: str,
+    source_run_id: Optional[str],
+    source_item_ref: Optional[str],
+    time_context_value: str,
+    *,
+    ranking: str,
+    clock=None,
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Dict[str, Any], str, str, Dict[str, Any]]:
+    if capability not in {
+        "performance_error_series",
+        "performance_throughput_series",
+        "alarm_events",
+        "alarm_detail",
+        "alarm_metric_series",
+        "recent_requests",
+        "application_instances",
+        "external_calls",
+        "trace_exceptions",
+    }:
+        raise Blocked("CAPABILITY_NOT_EXPOSED")
+    try:
+        time_context = resolve_time_context(time_context_value, clock or __import__("time"))
+    except ValueError as exc:
+        raise Blocked("UNSUPPORTED_TIME_SHAPE") from exc
+    source = None
+    if capability != "alarm_events":
+        if not source_run_id or not source_item_ref:
+            raise Blocked("SOURCE_IDENTITY_INCOMPLETE")
+        try:
+            source = _resolve_source(store, source_run_id, source_item_ref)
+        except (FileNotFoundError, KeyError) as exc:
+            raise Blocked("INVALID_SOURCE_REF") from exc
+    try:
+        request, artifact_name, artifact_kind, metadata = _source_request_for_capability(capability, source, time_context, ranking=ranking)
+    except ValueError as exc:
+        code = str(exc)
+        raise Blocked(code if code.isupper() else "SOURCE_IDENTITY_INCOMPLETE") from exc
+    if source is not None:
+        metadata["continuation_from"] = {"run_id": source_run_id, "item_ref": source_item_ref}
+    return source, time_context, request, artifact_name, artifact_kind, metadata
+
+
+def _source_request_for_capability(
+    capability: str,
+    source: Optional[Dict[str, Any]],
+    time_context: Dict[str, Any],
+    *,
+    ranking: str,
+) -> Tuple[Dict[str, Any], str, str, Dict[str, Any]]:
+    identity = (source or {}).get("wire_identity", {})
+    parent = {"source_run_id": (source or {}).get("source_run_id"), "source_item_ref": (source or {}).get("item_ref")}
+    if capability == "alarm_events":
+        return alarm_events_request(time_context), "alarm_events.json", "alarm_events", {"capability": "list_alarm_events", "page_size": 20}
+    if capability in {"performance_error_series", "performance_throughput_series"}:
+        biz_id = identity.get("bizSystemId")
+        if not biz_id:
+            raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
+        requests = performance_timeseries_requests(str(biz_id), time_context)
+        is_error = capability == "performance_error_series"
+        return requests[1 if is_error else 2], f"{capability}.json", capability, {"capability": capability, "business_system_id": str(biz_id), "metric": "error_rate" if is_error else "throughput", "unit": "percent" if is_error else "per_second", "aggregation": "series", "semantic_status": "VERIFIED", **parent}
+    if capability == "alarm_detail":
+        alarm_id = identity.get("alarmEventId")
+        if not alarm_id:
+            raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
+        return alarm_event_detail_request(str(alarm_id), time_context), "alarm_detail.json", "alarm_detail", {"capability": "read_alarm_event_detail", "alarm_id": str(alarm_id), "business_system_id": identity.get("bizSystemId"), "application_id": identity.get("applicationId"), **parent}
+    if capability == "alarm_metric_series":
+        required = ("alarmEventId", "metric", "codeIndex", "policyId", "policyCheckMode", "product", "targetType", "eventItems")
+        if any(identity.get(field) in (None, "", []) for field in required):
+            raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
+        return alarm_metric_series_request(identity, time_context), "alarm_metric_series.json", "alarm_metric_series", {"capability": "read_alarm_metric_series", "alarm_id": str(identity["alarmEventId"]), "metric": identity["metric"], "unit": "UNKNOWN", "semantic_status": "UNKNOWN", **parent}
+    if capability == "recent_requests":
+        biz_id = identity.get("bizSystemId")
+        if not biz_id:
+            raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
+        return recent_request_ranking_request(str(biz_id), time_context, ranking=ranking), "recent_requests.json", "recent_requests", {"capability": "list_recent_requests", "ranking": ranking, "business_system_id": str(biz_id), **parent}
+    if capability in {"application_instances", "external_calls"}:
+        biz_id, app_id = identity.get("bizSystemId"), identity.get("applicationId")
+        if not biz_id or not app_id:
+            raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
+        metadata = {"capability": "read_application_overview" if capability == "application_instances" else "list_external_calls", "business_system_id": str(biz_id), "application_id": str(app_id), **parent}
+        if capability == "application_instances":
+            return application_instances_request(str(biz_id), str(app_id), time_context), "instance_context.json", "instance_context", metadata
+        return external_uri_request(str(biz_id), str(app_id), time_context), "external_calls.json", "external_calls", metadata
+    if capability == "trace_exceptions":
+        required = ("bizSystemId", "applicationId", "actionGuid", "traceId")
+        if any(identity.get(field) in (None, "") for field in required):
+            raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
+        action_type = resolve_verified_trace_action_type(str(identity.get("requestType") or identity.get("actionType") or ""))
+        if action_type is None:
+            raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
+        resolved = dict(identity)
+        resolved["actionType"] = action_type
+        return trace_exceptions_request(resolved, time_context), "trace_exceptions.json", "trace_exceptions", {"capability": "list_trace_exceptions", "business_system_id": str(identity["bizSystemId"]), "application_id": str(identity["applicationId"]), "action_guid": str(identity["actionGuid"]), "trace_id": str(identity["traceId"]), **parent}
+    raise ValueError("CAPABILITY_NOT_EXPOSED")
+
+
+def _source_artifact(
+    result: ExecutionResult,
+    kind: str,
+    source_metadata: Dict[str, Any],
+    time_context: Dict[str, Any],
+    *,
+    run_id: str,
+) -> Dict[str, Any]:
+    if result.outcome == "FAILED":
+        artifact = _failed_artifact(kind, None, time_context, result, data={"items": []})
+        artifact["source"] = source_metadata
+        return artifact
+    raw_ref = _final_ref(result)
+    items, extra = normalize_source(kind, result.response or {}, source_metadata, run_id=run_id, raw_ref=raw_ref)
+    data = {"items": items, "raw_shape": _source_shape(result.response or {})}
+    data.update(extra)
+    return {
+        "schema_version": 1,
+        "kind": kind,
+        "status": "SUCCESS" if items else "EMPTY",
+        "time_context": time_context,
+        "source": source_metadata,
+        "derived_from": _derived_from(result),
+        "execution": _execution_metadata(result),
+        "data": data,
+    }
+
+
+def _source_shape(response: Dict[str, Any]) -> Dict[str, Any]:
+    data = response.get("data")
+    if isinstance(data, dict):
+        return {"data_type": "object", "keys": sorted(str(key) for key in data)}
+    if isinstance(data, list):
+        return {"data_type": "list", "length": len(data)}
+    return {"data_type": type(data).__name__}
 
 
 def _auth_required_but_missing(config: Config, transport) -> bool:
@@ -894,6 +1113,15 @@ def _capability_for_kind(kind: str) -> str:
         "candidates": "list_request_overview_candidates",
         "trace": "get_trace_detail",
         "call_tree": "get_trace_call_tree",
+        "performance_error_series": "read_error_timeseries",
+        "performance_throughput_series": "read_throughput_timeseries",
+        "alarm_events": "list_alarm_events",
+        "alarm_detail": "read_alarm_event_detail",
+        "alarm_metric_series": "read_alarm_metric_series",
+        "recent_requests": "list_recent_requests",
+        "instance_context": "read_application_overview",
+        "external_calls": "list_external_calls",
+        "trace_exceptions": "list_trace_exceptions",
     }.get(kind, kind)
 
 
@@ -922,6 +1150,7 @@ def _exportable_json_files(source: Path) -> List[Tuple[Path, Path]]:
 def _sanitize(value: Any, *, root: Path, pseudonyms: Optional["_PseudonymState"] = None) -> Any:
     secret_parts = ("authorization", "cookie", "token", "password", "secret")
     identity_keys = {
+        "identity",
         "wire_identity",
         "actionId",
         "actionGuid",
@@ -934,6 +1163,15 @@ def _sanitize(value: Any, *, root: Path, pseudonyms: Optional["_PseudonymState"]
         "available_actions",
         "links",
         "url",
+        "dependency_uri",
+        "business_system_id",
+        "application_id",
+        "action_id",
+        "action_guid",
+        "trace_id",
+        "instance_id",
+        "alarm_id",
+        "dependency",
     }
     name_label_keys = {
         "display_name",
@@ -969,7 +1207,11 @@ class _PseudonymState:
 
 
 def _collect_identity_values(value: Any, state: _PseudonymState) -> None:
-    id_value_keys = {"bizSystemId", "applicationId", "actionId", "systemId", "instanceId", "actionGuid", "traceId"}
+    id_value_keys = {
+        "bizSystemId", "applicationId", "actionId", "systemId", "instanceId", "actionGuid", "traceId",
+        "business_system_id", "application_id", "action_id", "action_guid", "trace_id", "instance_id",
+        "alarm_id", "dependency",
+    }
     name_label_keys = {"display_name", "name", "applicationName", "bizSystemName", "actionName"}
     if isinstance(value, dict):
         for key, nested in value.items():

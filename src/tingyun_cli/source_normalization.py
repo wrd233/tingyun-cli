@@ -1,0 +1,161 @@
+from __future__ import annotations
+
+from typing import Any, Dict, List, Mapping, Tuple
+
+from .candidates import is_investigate_trace_eligible
+
+
+def normalize_source(kind: str, response: Mapping[str, Any], source: Mapping[str, Any], *, run_id: str, raw_ref: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    rows = _extract_rows(response)
+    if kind == "alarm_events":
+        return _alarm_events(rows, source, run_id, raw_ref), {"completeness": _bounded_completeness(response, len(rows))}
+    if kind == "alarm_detail":
+        return _alarm_detail(rows, source, run_id, raw_ref), {}
+    if kind == "recent_requests":
+        return _recent_requests(rows, source, run_id, raw_ref), {"completeness": _bounded_completeness(response, len(rows))}
+    if kind == "instance_context":
+        nodes = _graph_nodes(response)
+        items = _instances(nodes, source, run_id, raw_ref)
+        return items, {"instance_count": len(items), "node_count": len(nodes), "completeness": "UNKNOWN"}
+    if kind == "external_calls":
+        return _external(rows, source, run_id, raw_ref), {"completeness": _bounded_completeness(response, len(rows))}
+    if kind == "trace_exceptions":
+        return _exceptions(rows, source, run_id, raw_ref), {"completeness": _bounded_completeness(response, len(rows))}
+    if kind in {"performance_error_series", "performance_throughput_series", "alarm_metric_series"}:
+        series = _series(response)
+        metric = source.get("metric")
+        unit = source.get("unit")
+        items = [{"item_ref": f"series-point-{index:04d}", "item_type": "metric_series_point", "source_run_id": run_id, "source_refs": [raw_ref], **dict(point)} for index, point in enumerate(series, 1)]
+        return items, {"metric": {"semantic": metric, "unit": unit, "aggregation": source.get("aggregation", "series"), "semantic_status": source.get("semantic_status", "UNKNOWN")}, "completeness": "BOUNDED" if items else "UNKNOWN"}
+    return [], {"completeness": "UNKNOWN"}
+
+
+def _alarm_events(rows, source, run_id, raw_ref):
+    items = []
+    for index, row in enumerate(rows, 1):
+        alarm_id = row.get("id") or row.get("eventId") or row.get("eventTraceId")
+        parent = row.get("parentGroup") if isinstance(row.get("parentGroup"), Mapping) else {}
+        business_id = parent.get("$biz_system_id") or parent.get("bizSystemId")
+        application_id = parent.get("$application_id") or parent.get("applicationId")
+        items.append({"item_ref": f"alarm-event-{index:04d}", "item_type": "alarm_event", "kind": "alarm_event", "name": _target_name(row, alarm_id), "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "alarm", "alarm_id": alarm_id}, "source": {"capability": source["capability"]}, "identity": {"alarm_id": alarm_id, "business_system_id": business_id, "application_id": application_id}, "wire_identity": {"alarmEventId": alarm_id, "bizSystemId": business_id, "applicationId": application_id}, "available_actions": []})
+    return items
+
+
+def _alarm_detail(rows, source, run_id, raw_ref):
+    items = []
+    for index, row in enumerate(rows, 1):
+        parent = row.get("parentGroup") if isinstance(row.get("parentGroup"), Mapping) else {}
+        alarm_id = row.get("id") or source.get("alarm_id")
+        business_id = parent.get("$biz_system_id") or parent.get("bizSystemId") or source.get("business_system_id")
+        application_id = parent.get("$application_id") or parent.get("applicationId") or source.get("application_id")
+        event_items = row.get("eventItems") or row.get("alarmEventItems") or []
+        event_trace_ids = [item.get("eventTraceId") for item in event_items if isinstance(item, Mapping) and item.get("eventTraceId") not in (None, "")]
+        wire = {"alarmEventId": alarm_id, "bizSystemId": business_id, "applicationId": application_id}
+        for field in ("metric", "codeIndex", "policyId", "policyCheckMode", "product", "targetType"):
+            if row.get(field) not in (None, ""):
+                wire[field] = row[field]
+        if event_items:
+            wire["eventItems"] = event_items
+        items.append({"item_ref": f"alarm-detail-{index:04d}", "item_type": "alarm_detail", "kind": "alarm_detail", "name": _target_name(row, alarm_id), "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "alarm", "alarm_id": alarm_id}, "source": {"capability": source["capability"]}, "identity": {"alarm_id": alarm_id, "business_system_id": business_id, "application_id": application_id, "event_trace_ids": event_trace_ids}, "wire_identity": wire, "available_actions": []})
+    return items
+
+
+def _recent_requests(rows, source, run_id, raw_ref):
+    items = []
+    for index, row in enumerate(rows, 1):
+        identity = {field: row[field] for field in ("applicationId", "actionId", "systemId", "requestType") if row.get(field) not in (None, "")}
+        identity["bizSystemId"] = source["business_system_id"]
+        item = {"item_ref": f"request-candidate-{index:04d}", "item_type": "request_candidate", "kind": "candidate", "name": row.get("actionName") or row.get("name") or "", "source_run_id": run_id, "source_refs": [raw_ref], "labels": {"applicationName": row.get("applicationName"), "requestType": row.get("requestType")}, "scope": _recent_scope(identity), "source": {"capability": source["capability"], "ranking": source["ranking"]}, "selection_provenance": {"strategy": f"{source['ranking']}_rank", "rank": index, "candidate_count": len(rows)}, "metrics": _candidate_metrics(row), "identity": _friendly_identity(identity), "wire_identity": identity, "available_actions": []}
+        if source["ranking"] == "response" and is_investigate_trace_eligible(item):
+            item["available_actions"] = ["investigate_trace"]
+        items.append(item)
+    return items
+
+
+def _instances(nodes, source, run_id, raw_ref):
+    items = []
+    for node in nodes:
+        node_type = str(node.get("type") or node.get("nodeType") or "").upper()
+        if "INSTANCE" not in node_type and not any(node.get(field) not in (None, "") for field in ("instanceId", "serverName", "agentId")):
+            continue
+        instance_id = node.get("instanceId") or node.get("id")
+        items.append({"item_ref": f"instance-{len(items)+1:04d}", "item_type": "instance", "kind": "instance", "name": node.get("name") or str(instance_id), "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "instance", "business_system_id": source["business_system_id"], "application_id": source["application_id"], "instance_id": instance_id}, "source": {"capability": source["capability"]}, "identity": {"business_system_id": source["business_system_id"], "application_id": source["application_id"], "instance_id": instance_id}, "wire_identity": {"bizSystemId": source["business_system_id"], "applicationId": source["application_id"], "instanceId": instance_id}, "available_actions": []})
+    return items
+
+
+def _external(rows, source, run_id, raw_ref):
+    items = []
+    for index, row in enumerate(rows, 1):
+        dependency = row.get("host") or row.get("domain") or row.get("uri") or row.get("url") or row.get("name")
+        items.append({"item_ref": f"external-dependency-{index:04d}", "item_type": "external_dependency", "kind": "external_dependency", "name": str(dependency or ""), "dependency_uri": row.get("uri") or row.get("url"), "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "external_dependency", "business_system_id": source["business_system_id"], "application_id": source["application_id"], "dependency": dependency}, "source": {"capability": source["capability"]}, "identity": {"business_system_id": source["business_system_id"], "application_id": source["application_id"], "dependency": dependency}, "metrics": _external_metrics(row), "available_actions": []})
+    return items
+
+
+def _exceptions(rows, source, run_id, raw_ref):
+    items = []
+    for index, row in enumerate(rows, 1):
+        exception_class = row.get("exceptionClass") or row.get("exception_class") or row.get("class") or row.get("type")
+        items.append({"item_ref": f"trace-exception-{index:04d}", "item_type": "trace_exception", "kind": "trace_exception", "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "trace", "trace_id": source["trace_id"]}, "source": {"capability": source["capability"]}, "identity": {"business_system_id": source["business_system_id"], "application_id": source["application_id"], "trace_id": source["trace_id"], "action_guid": source["action_guid"], "exception_class": exception_class}, "message": row.get("message") or row.get("errorMessage") or row.get("msg"), "stack": row.get("stack") or [], "available_actions": []})
+    return items
+
+
+def _extract_rows(response):
+    data = response.get("data")
+    if isinstance(data, list):
+        return [dict(item) for item in data if isinstance(item, Mapping)]
+    if isinstance(data, Mapping):
+        for key in ("content", "items", "rows", "data"):
+            if isinstance(data.get(key), list):
+                return [dict(item) for item in data[key] if isinstance(item, Mapping)]
+        return [dict(data)] if data else []
+    return []
+
+
+def _series(response):
+    data = response.get("data")
+    if isinstance(data, Mapping) and isinstance(data.get("series"), list):
+        return [dict(point) for point in data["series"] if isinstance(point, Mapping)]
+    return _extract_rows(response)
+
+
+def _graph_nodes(response):
+    data = response.get("data")
+    return [dict(node) for node in data.get("nodes", []) if isinstance(node, Mapping)] if isinstance(data, Mapping) else []
+
+
+def _target_name(row, fallback):
+    target = row.get("target")
+    return str(target.get("value") if isinstance(target, Mapping) else fallback)
+
+
+def _recent_scope(identity):
+    if identity.get("applicationId") and identity.get("actionId"):
+        return {"type": "transaction", "business_system_id": identity.get("bizSystemId"), "application_id": identity.get("applicationId"), "action_id": identity.get("actionId")}
+    return {"type": "business_system", "business_system_id": identity.get("bizSystemId")}
+
+
+def _friendly_identity(identity):
+    names = {"bizSystemId": "business_system_id", "applicationId": "application_id", "actionId": "action_id", "requestType": "request_type"}
+    return {names[key]: value for key, value in identity.items() if key in names}
+
+
+def _candidate_metrics(row):
+    mapping = {"responseTimeMillisecondAvg": ("response_avg", "ms"), "responseP95": ("p95", "ms"), "responseP99": ("p99", "ms"), "throughput": ("throughput", "per_second"), "totalCount": ("total_count", "count"), "errorRate": ("error_rate", "percent"), "errorTotalCount": ("error_count", "count")}
+    return {metric: {"value": row[field], "unit": unit} for field, (metric, unit) in mapping.items() if row.get(field) is not None}
+
+
+def _external_metrics(row):
+    mapping = {"callCount": ("call_count", "count"), "count": ("call_count", "count"), "errorCount": ("error_count", "count"), "errorTotalCount": ("error_count", "count"), "errorRate": ("error_rate", "percent"), "responseTimeMillisecondAvg": ("response_avg", "ms"), "avgResponseTime": ("response_avg", "ms"), "responseP95": ("p95", "ms"), "responseP99": ("p99", "ms")}
+    metrics = {}
+    for field, (metric, unit) in mapping.items():
+        if row.get(field) is not None and metric not in metrics:
+            metrics[metric] = {"value": row[field], "unit": unit}
+    return metrics
+
+
+def _bounded_completeness(response, count):
+    data = response.get("data")
+    total = data.get("totalElements", data.get("total")) if isinstance(data, Mapping) else None
+    if isinstance(total, int) and count >= total:
+        return "FULL"
+    return "BOUNDED" if count else "UNKNOWN"
