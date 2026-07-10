@@ -22,21 +22,21 @@ def main(argv=None) -> int:
     parser.add_argument("--data-root", type=Path)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    discover = sub.add_parser("discover")
+    discover = sub.add_parser("discover", help="Core Live read-only discovery")
     discover.add_argument("--query", default="")
 
-    collect = sub.add_parser("collect")
+    collect = sub.add_parser("collect", help="Core Live read-only evidence collection")
     collect.add_argument("--source-run-id", required=True)
     collect.add_argument("--source-item-ref", required=True)
     collect.add_argument("--time-context", required=True)
     collect.add_argument("--plan-only", action="store_true")
 
-    investigate = sub.add_parser("investigate")
+    investigate = sub.add_parser("investigate", help="Core Live read-only investigation")
     investigate.add_argument("--source-run-id", required=True)
     investigate.add_argument("--source-item-ref", required=True)
     investigate.add_argument("--action", required=True)
 
-    inspect = sub.add_parser("inspect")
+    inspect = sub.add_parser("inspect", help="Local-only Candidate inspection")
     inspect_sub = inspect.add_subparsers(dest="inspect_command", required=True)
     candidates = inspect_sub.add_parser("candidates")
     candidates.add_argument("mode", choices=["all", "top", "filter"])
@@ -46,11 +46,11 @@ def main(argv=None) -> int:
     candidates.add_argument("--operator")
     candidates.add_argument("--value", type=float)
 
-    export = sub.add_parser("sanitized-export")
+    export = sub.add_parser("sanitized-export", help="Local-only identity-sanitized handoff")
     export.add_argument("--run-id", required=True)
     export.add_argument("--output", type=Path, required=True)
 
-    depth = sub.add_parser("depth", help="local-only deterministic investigation primitives")
+    depth = sub.add_parser("depth", help="Local-only deterministic investigation primitives")
     depth_sub = depth.add_subparsers(dest="depth_command", required=True)
     depth_sub.add_parser("promotion-matrix")
     trace_candidates = depth_sub.add_parser("trace-candidates")
@@ -89,7 +89,7 @@ def main(argv=None) -> int:
     workflow.add_argument("--source", type=Path, required=True)
     workflow.add_argument("--max-live-requests", type=int, default=20)
 
-    source = sub.add_parser("source", help="advanced explicit read-only acquisition")
+    source = sub.add_parser("source", help="Advanced explicit read-only acquisition")
     source_sub = source.add_subparsers(dest="source_command", required=True)
     alarm_events = source_sub.add_parser("alarm-events")
     alarm_events.add_argument("--time-context", required=True)

@@ -13,6 +13,8 @@
 7. 只从 Evidence Item 的 `available_actions` 中 exact 选择 Action。
 8. 用 `investigate --source-run-id ... --source-item-ref ... --action ...` 生成 Child Run。
 9. Candidate 的 `source_run_id` 指向创建它的 Collect Run。直接复制 `inspect` 输出中的 `source_run_id + item_ref`，不要改成父 Discovery Run。
+10. 只有 Core 证据不足时才显式调用 `source`；每次只选一个 source recipe，读取其独立 SOURCE Run。
+11. 对已有 Evidence 做 narrowing、selection、compare、diff、triage 或 workflow planning 时使用 `depth`；这些命令 0 HTTP、0 Run。
 
 ## 必须遵守
 
@@ -24,6 +26,9 @@
 - 不要要求 CLI 输出报告或根因判断。
 - 不要把 `error_rate` 当 ratio；CLI 中 5% 写作 `--value 5`。
 - 不要把 Trace proof 当成 Navigation proof。`BG` 和 `TX,IF` 可有 `investigate_trace`，但没有独立 route proof 时没有内部 URL。
+- 不要把 Advanced Source 当成 Core Golden Path，也不要声称新 source 全部 Live-Proven。
+- 不要把 `overview.max` 解释成单请求最大耗时；它仍为 UNKNOWN。
+- 不要把 fixed-duration cluster 当根因；它只是 candidate signal。
 
 ## 读取顺序
 
@@ -52,6 +57,10 @@ raw/*.json
 
 - `investigate_trace`：只从具备 `bizSystemId`、`applicationId`、`actionId`、`requestType` 的 Candidate Item 读取 Trace Detail。
 - `inspect_call_tree`：只从具备 `bizSystemId`、`applicationId`、`actionGuid`、`traceId` 的 Trace Item 读取 Call Tree。
+
+Advanced Read-only Source Surface：performance error/throughput series、alarm events/detail/metric、recent request rankings、application instances、external calls、trace exceptions。它们只通过固定 source recipe 进入，不是 generic endpoint runner。
+
+Local-only Surface：promotion matrix、trace candidates/selection、window narrowing/peak、path/error triage、window/instance/tree compare、external candidate analysis，以及五个 bounded workflow plans。
 
 SQL、Stack、Logs、NoSQL、MQ 等保留在研究协议中；未进入 Runtime Stable Surface 前不要调用。
 

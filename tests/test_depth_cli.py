@@ -2,6 +2,8 @@ import json
 from contextlib import redirect_stdout
 from io import StringIO
 
+import pytest
+
 from tingyun_cli.cli import main
 from tingyun_cli.storage import RunStore
 
@@ -11,6 +13,17 @@ def _run_cli(args):
     with redirect_stdout(stdout):
         code = main(args)
     return code, json.loads(stdout.getvalue())
+
+
+def test_top_level_help_distinguishes_live_advanced_and_local_surfaces(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["--help"])
+
+    help_text = capsys.readouterr().out
+    assert exc.value.code == 0
+    assert "Core Live read-only" in help_text
+    assert "Advanced explicit read-only" in help_text
+    assert "Local-only deterministic" in help_text
 
 
 def test_depth_promotion_matrix_cli_returns_qualified_json():

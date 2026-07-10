@@ -7,6 +7,7 @@ Live 命令：
 ```text
 discover
 collect
+source
 investigate
 ```
 
@@ -81,6 +82,16 @@ tingyun inspect candidates filter --run-id run-... --metric error_rate --operato
 
 `error_rate` 的稳定单位是 percent。筛选 5% 使用 `--value 5`，不是旧的 ratio-style 小数值。
 
+## Advanced Source
+
+`source` 子命令见 README。除 `alarm-events` 外都要求 `source_run_id + source_item_ref`；身份、时间、capability、auth 全部在 Live Lock 前校验。每次 recipe 的 `expected_logical_request_count = 1`，Manifest `live_request_count` 记录 retry/auth replay 后的实际 attempts。
+
+SOURCE Run 使用现有目录布局和状态语义。response ranking 可在完整、精确、已验证 identity 下暴露 `investigate_trace`；error/throughput ranking 不继承 responseList 的 Trace lineage。
+
+## Local Depth and Workflow Plans
+
+`depth` 命令只读输入 JSON并输出确定性 JSON。它们不创建 data root、Run 或 index，不访问 token/HTTP。`workflow-plan` 只描述 integrated capability、availability、request cost、budget 和 blocker；`RESEARCH_ONLY` step 的 request cost 固定为 0，且不会假装可执行。
+
 ## Plan-only
 
 `collect --plan-only` 只做本地解析和校验，不创建 Run、不写 `.inflight/`、不写 `runs.jsonl`、不访问 HTTP。无效 source Run、item_ref、source kind 或时间形状会返回：
@@ -101,4 +112,4 @@ Ready plan 使用 `expected_logical_request_count`。真实 Run Manifest 的 `li
 
 每次 CLI startup 会先冻结 confirmed stale `.inflight/` Run 为 `INTERRUPTED`，不会冻结 active owner PID。
 
-默认生产 transport 缺少 `TINGYUN_AUTHORIZATION` 时，`discover` / `collect` / `investigate` 返回 `BLOCKED / AUTH_NOT_CONFIGURED`，且 `live_request_count = 0`。
+默认生产 transport 缺少 `TINGYUN_AUTHORIZATION` 时，`discover` / `collect` / `source` / `investigate` 返回 `BLOCKED / AUTH_NOT_CONFIGURED`，且 `live_request_count = 0`。

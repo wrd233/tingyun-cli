@@ -12,11 +12,17 @@ collect
 investigate
   -> Child Run
   -> new evidence and available_actions
+source (advanced, explicit)
+  -> one fixed read recipe
+  -> SOURCE Run
+depth / workflow plan (local)
+  -> deterministic JSON
+  -> 0 HTTP / 0 Run
 ```
 
 CLI 负责安全、准确、克制地获取事实并保存证据。Agent 负责判断哪些事实重要、如何组合分析、下一步查什么以及何时停止。
 
-当前实现状态是 `Golden Path Live-Validated`，范围限定为已测试目标、时间窗口和 runtime version。它不声明 Production-ready 或 all-domain Live-Proven。
+当前实现状态是 `Core Golden Path Live-Validated + Integrated Investigation Depth`。该 wording 不把 Advanced Source 泛化为 Live-Proven。
 
 ## Runtime Boundary
 
@@ -27,11 +33,15 @@ discover
 collect
 investigate
 inspect
+source
+depth
 plan-only
 sanitized-export
 ```
 
 底层 Endpoint / Capability / Variant 是协议和 Recipe 内部构件，不作为默认 Agent Surface。
+
+`source` 是单 recipe 的高级只读 acquisition namespace；`depth` 是纯本地 namespace。两者都不改变默认 Agent Golden Path。
 
 ## Source Model
 
@@ -80,5 +90,7 @@ Protocol can know more than Runtime may expose
 HTTP execution returns a small execution result to the command layer. Normalized Artifacts use that result to record final raw provenance, attempt count, retry/auth metadata, and `FAILED` status when the request or upstream semantics failed.
 
 `collect` keeps independent evidence steps separate. A failed topology, performance, or candidates step produces a finalized `PARTIAL` Run with successful sibling Artifacts preserved.
+
+Core Collect 固定三个逻辑请求。error/throughput series 通过独立 source recipe 获取，避免默认请求量从 3 隐式增加到 5。
 
 CLI startup runs a quick `.inflight/` recovery pass. Stale inflight Runs are frozen as `INTERRUPTED`; active owner PIDs are left untouched. Deterministic local validation runs before auth preparation and live-lock acquisition, so invalid source/time/action input is not hidden by `LIVE_EXECUTION_BUSY`.

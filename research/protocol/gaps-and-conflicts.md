@@ -4,6 +4,8 @@
 
 Resolved note: Candidate Dataset Source Gate 已由真实 Session 证据关闭。v1 Primary Stable Candidate Source 是 `POST /server-api/graph/query/overview?request_overview`；Export / Download 保留为研究验证来源和未来 File-native Evidence Source，不作为 Runtime fallback。返回恰好 1000 行仍然不是 `FULL` 证明。
 
+Integration note (2026-07-10): Core Collect 仍为 3 个逻辑请求。error/throughput series、alarm、recent request、instance、external 和 trace-exception 能力只通过一次一个的 Advanced Source READ recipe 进入；本次 integration 为 0 Live。responseList 的 Trace lineage 只适用于 response ranking，errorList/throughtList 仍不能继承。所有 WRITE/UNKNOWN 和 research-only path 继续排除在生产安全面之外。
+
 ## gap_service_group_identity: 服务组身份未由 Session 深度证明
 
 - 已知事实：官方/页面语义出现服务组/分组概念，Session 中主要证明业务系统、应用、实例和调用边。
@@ -117,7 +119,7 @@ validation task:
 
 ## gap_runtime_to_trace_list: transaction/actionItemList actionId 冷启动来源未证明
 
-- 已知事实：v1 Golden Path 已通过 request_overview Candidate -> `trace/detail` -> `callTree` 验证，且 runtime 只使用 exact actionType resolver：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。`list_recent_requests` / `responseList` -> `trace/detail` -> `callTree` 也已由 `live_evidence_round_2_2026-07-07` 证明，但它保留为研究协议路径，不属于当前 production runtime safety surface。`actionItemList` 在缺少 `actionId` 参数时返回 INTERNAL，说明 transaction/actionItemList 路径仍需要前置 `actionId`。
+- 已知事实：Core Golden Path 已通过 request_overview Candidate -> `trace/detail` -> `callTree` 验证，且 runtime 只使用 exact actionType resolver：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。`list_recent_requests` / `responseList` -> `trace/detail` -> `callTree` 也已由 `live_evidence_round_2_2026-07-07` 证明，现在只通过正式 Advanced Source response-ranking recipe 进入，不属于 Core；`actionItemList` 仍需要前置 `actionId`。
 - 缺失证据：Application / transaction context 如何获得 `actionItemList` 所需的冷启动 `actionId` 尚未证明；可能来自 URL、页面状态、前置请求或其他 observed READ response，但当前协议不能假设来源。
 - 对能力影响：不影响 v1 Golden Path；`alarm_to_trace` 中通过 transaction/actionItemList 枚举 Trace 的路径仍为 PARTIALLY_VERIFIED；`list_recent_requests` -> Trace 子路径已升级为 VERIFIED。
 - live_evidence_round_1 (2026-07-07): PARTIAL — 4 次只读请求；确认 `actionItemList` 缺少 `actionId` 时失败，`responseList` 无需 `actionId` 但当时目标业务系统无活跃数据。Raw evidence local-only on validation host; durable migration pending。

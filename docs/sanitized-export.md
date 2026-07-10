@@ -10,6 +10,7 @@ tingyun sanitized-export --run-id run-... --output .tingyun-runs/exports/run-saf
 
 - 移除 Authorization、Cookie、Token、Password、Secret；
 - 移除内部真实 Wire Identity；
+- 移除 Source Evidence 中 snake_case `identity`、scope IDs、alarm/dependency identity 和 dependency URI；
 - 使用一个共享 pseudonym state 处理整个 export，同一原始身份在 manifest、coverage、evidence 和 safe raw request metadata 中得到同一 pseudonym；
 - 清洗数组、嵌套值和 composite strings 中已知 identity token，但保留普通 metric number；
 - 移除本地绝对路径；

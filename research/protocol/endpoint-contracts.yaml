@@ -5,6 +5,27 @@
     "created_date": "2026-07-06",
     "schema_note": "JSON syntax emitted in .yaml file; valid YAML and intentionally simple."
   },
+  "runtime_integration_2026_07_10": {
+    "status": "Core Golden Path Live-Validated + Integrated Investigation Depth",
+    "evidence_basis": "existing protocol evidence and offline fake transports; zero new Live requests",
+    "core_collect_logical_request_count": 3,
+    "advanced_source_policy": "one fixed serial READ recipe per SOURCE Run",
+    "advanced_source_paths": [
+      "/server-api/application/charts/error",
+      "/server-api/application/charts/throught",
+      "/nalarm-api/event/traceList",
+      "/nalarm-api/event/trace",
+      "/nalarm-api/event/metric/chart",
+      "/server-api/graph/information",
+      "/server-api/webaction/list/responseList",
+      "/server-api/webaction/list/errorList",
+      "/server-api/webaction/list/throughtList",
+      "/server-api/application/ext/uriList",
+      "/server-api/action/trace/detail/exceptions"
+    ],
+    "excluded_access": ["WRITE", "UNKNOWN"],
+    "qualification": "advanced source runtime exposure does not imply all-capability Live proof"
+  },
   "coverage": {
     "sessions_processed": "6/6",
     "session_files_inspected": "2943/2943",

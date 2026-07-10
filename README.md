@@ -2,13 +2,15 @@
 
 听云 APM 调查 CLI v1 是一个面向 Agent 的只读事实获取工具。它的核心资产不是终端表格或诊断报告，而是每次真实访问后留下的不可变 Run、Raw Wire Evidence、Normalized Evidence、Coverage 和调查血缘。
 
-当前状态：`Golden Path Live-Validated`，范围限定为已测试目标、时间窗口和 runtime version。它不声明 Production-ready 或 all-domain Live-Proven。
+当前状态：`Core Golden Path Live-Validated + Integrated Investigation Depth`。Live-validated 只限定已测试的 Core 目标、时间窗口和 runtime version；新 Advanced Source Capabilities 依据既有协议证据分级，不声明全部 Live-Proven。
 
 ## 是什么
 
 - Agent-first：输出稳定 JSON，方便 Agent 调用和读取。
 - Evidence Package-first：`collect` 生成固定核心证据包。
 - Immutable Run：`discover` / `collect` / `investigate` 每次都创建新 Run。
+- Advanced Source：显式 `source` 命令一次执行一个有界只读 recipe，并创建不可变 `SOURCE` Run。
+- Local Investigation：`depth` 原语和 workflow plan 只处理本地 JSON，0 HTTP、0 Run。
 - Read-only：Runtime 只允许已进入 Stable Surface 的读路径。
 - Branch-aware：Evidence Item 只在身份完整且 Action 已验证时暴露 `available_actions`。
 - Runtime-contract-hardened：失败步骤会形成 `FAILED` Artifact；成功空数据才是 `EMPTY`；`derived_from` 指向最终支撑 Raw 记录。
@@ -63,6 +65,30 @@ tingyun investigate --source-run-id run-... --source-item-ref item-0001 --action
 
 Live 命令 stdout 只输出 Run Receipt。完整证据从 `manifest_path` 指向的 Run 中读取。
 
+Core Collect 始终保持 topology、response performance、request-overview candidates 三个逻辑请求。error/throughput series 不会隐式加入默认路径。
+
+## Advanced Source Surface
+
+这些命令是显式高级读取，不属于默认 Golden Path；每次调用只执行一个串行 READ recipe，并复用 Core 的 auth、retry、pacing、Raw-before-Normalized、FAILED/EMPTY 和 immutable Run 合同：
+
+```bash
+tingyun source performance-error-series --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
+tingyun source performance-throughput-series --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
+tingyun source alarm-events --time-context last_30m
+tingyun source alarm-detail --source-run-id run-... --source-item-ref alarm-event-0001 --time-context last_30m
+tingyun source alarm-metric-series --source-run-id run-... --source-item-ref alarm-detail-0001 --time-context last_30m
+tingyun source recent-requests --source-run-id run-... --source-item-ref item-0001 --time-context last_30m --ranking response
+tingyun source application-instances --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
+tingyun source external-calls --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
+tingyun source trace-exceptions --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
+```
+
+除固定 page 1 / size 20 的 `alarm-events` 外，入口必须来自 `source_run_id + source_item_ref`。只有 response ranking 的既有精确血缘且通过 main actionType resolver 时才会暴露 `investigate_trace`；error/throughput ranking 不继承该证明。
+
+## Local Investigation Depth
+
+`depth` 提供 promotion matrix、trace candidates/selection、window narrowing/peak、path/error triage、window/tree comparison、external candidate analysis 和五个 workflow plans。所有 `depth` 命令不加载 transport、不创建 data root、不写 `.inflight/` 或 `runs.jsonl`。workflow plan 只返回确定性步骤、能力可用性、逻辑请求预算和 blockers，不自动执行。
+
 ## Run 位置
 
 默认目录：
@@ -106,3 +132,7 @@ CLI 启动会先扫描 `.inflight/`，只冻结确认 stale 的 Run 为 `INTERRU
 - `docs/requirements/tingyun-cli-v1-detailed-design.md`
 - `docs/requirements/tingyun-cli-v1-decisions-01-60.md`
 - `research/protocol/`
+- `docs/runtime-surface.md`
+- `docs/evidence-schema-depth.md`
+- `docs/investigation-guide.md`
+- `docs/protocol-promotion-matrix.md`

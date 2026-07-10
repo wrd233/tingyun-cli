@@ -1,4 +1,31 @@
 {
+  "runtime_integration_2026_07_10": {
+    "core_collect": {
+      "expected_logical_request_count": 3,
+      "capabilities": ["read_business_topology", "read_performance_timeseries.response", "list_request_overview_candidates"]
+    },
+    "advanced_source": {
+      "execution": "one fixed serial READ recipe per SOURCE Run",
+      "capabilities": [
+        "read_performance_timeseries.error",
+        "read_performance_timeseries.throughput",
+        "list_alarm_events",
+        "read_alarm_event_detail",
+        "read_alarm_metric_series",
+        "list_recent_requests.response",
+        "list_recent_requests.error",
+        "list_recent_requests.throughput",
+        "read_application_overview.instances",
+        "list_external_calls",
+        "list_trace_exceptions"
+      ],
+      "lineage_rule": "responseList trace lineage is scoped to response ranking and is not inherited by errorList or throughtList"
+    },
+    "local_plans": {
+      "execution": "zero HTTP and zero Run",
+      "names": ["slow_transaction", "external_dependency_timeout", "instance_anomaly", "transaction_error", "alarm_to_trace"]
+    }
+  },
   "capabilities": [
     {
       "id": "list_business_systems",
@@ -128,7 +155,7 @@
         "ep_post_server_api_webaction_list_throughtlist",
         "ep_post_server_api_webaction_list_errorlist"
       ],
-      "semantic": "responseList.content[] 表达窗口内 Action / Request Ranking Summary，而不是单次 request instance；其中 actionId 已 live-verified 可进入 get_trace_detail 并解析到具体 Trace。throughtList/errorList 只保留统计清单能力，不能自动继承该 trace 血缘。该能力保留在研究协议中；当前 v1 production runtime safety surface 不执行 responseList。",
+      "semantic": "responseList.content[] 表达窗口内 Action / Request Ranking Summary，而不是单次 request instance；其中 actionId 已 live-verified 可进入 get_trace_detail 并解析到具体 Trace。responseList 只通过正式 Advanced Source response-ranking recipe 进入，不属于 Core。throughtList/errorList 只保留统计清单能力，不能自动继承该 trace 血缘。",
       "verification": "VERIFIED"
     },
     {
@@ -534,7 +561,7 @@
         "服务接口和组件操作作为可选扩展读取；未验证能力只记录 gap，不补链路",
         "list_transactions/actionItemList 仅在已有验证来源的 actionId 时执行；冷启动 actionId 来源未证明时跳过并记录 gap_runtime_to_trace_list。",
         "Candidate Dataset 固定使用 request_overview List API；Export/Download 只作为研究验证或未来 file-native source，不作为 Runtime fallback。",
-        "v1 production runtime 不执行 responseList；responseList 只保留为研究协议和 recent-request path 证据。"
+        "Core runtime 不执行 responseList；只有显式 Advanced Source response-ranking recipe 可执行该 READ path，errorList/throughtList 不继承 Trace lineage。"
       ]
     },
     {

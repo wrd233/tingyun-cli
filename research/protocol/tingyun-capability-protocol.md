@@ -1,6 +1,8 @@
 # 听云能力协议基线
 
-本协议基线主体来自本地离线证据：6 组 AI-ready Session、2 份官方 API PDF、12 个导出文件；另吸收 2026-07-07 已完成的低频只读 live validation 结论。当前 v1 runtime 状态为 `Golden Path Live-Validated`，范围限定为已测试目标、时间窗口和 runtime version；不声明 Production-ready 或 all-domain Live-Proven。本文档不包含 Cookie、Token、Authorization 或内部 origin，不实现 CLI、HTTP 客户端、写操作执行器或 Agent/LLM 系统。旧 CLI/catalog/snapshot/命令树未作为约束。
+本协议基线主体来自本地离线证据：6 组 AI-ready Session、2 份官方 API PDF、12 个导出文件；另吸收 2026-07-07 已完成的低频只读 live validation 结论。当前 v1 runtime 状态为 `Core Golden Path Live-Validated + Integrated Investigation Depth`，范围限定为已测试目标、时间窗口和 runtime version；Advanced Source 只按既有证据分级，不声明全部 Live-Proven。本文档不包含 Cookie、Token、Authorization 或内部 origin，不实现写操作执行器或 Agent/LLM 系统。
+
+Runtime 保持三层：Core Collect 固定 3 个逻辑请求；Advanced Source 每次只运行一个固定串行 READ recipe 并创建 SOURCE Run；本地 depth/workflow plan 为 0 HTTP、0 Run。WRITE/UNKNOWN 与 research-only endpoint 不进入生产安全面。
 
 ## 覆盖基线
 
@@ -47,7 +49,7 @@ Candidate -> Trace 的 v1 runtime resolver 只编码已验证映射：`WEB -> WE
 
 ### 问题溯源
 
-已观察到告警入口、Action/运行对象身份桥梁、近期请求入口、Candidate direct Trace 入口和已知 Trace 入口。当前 v1 runtime Golden Path 是 `discover -> collect(request_overview candidates) -> inspect candidates -> investigate_trace -> inspect_call_tree`。研究协议中同时保留 business-system-scoped recent request path：`getBusinessTree` 发现业务系统，`responseList.content[].actionId` 精确进入 `trace/detail.request.actionId`，`trace/detail.response.actionGuid` 与 `trace/detail.response.data.id(traceId)` 精确进入 `callTree`。`responseList.content[]` 是窗口化 Action / Request Ranking Summary，不是单次 request instance；它通过 actionId 解析到具体 Trace，但不属于当前 production runtime safety surface。Trace Detail 自身还含 timeline、trace-local topology、serviceFlow/requestServiceFlow、embedded exceptions 和部分 embedded stack evidence；这些不替代业务系统整体拓扑或独立 `detail/stackTraces` endpoint。Stack、Agent Context 和日志搜索作为 Trace 深挖补充能力记录；剩余缺口是 `list_transactions` / `actionItemList` 的冷启动 `actionId` 来源，而不是 v1 Golden Path。
+已观察到告警入口、Action/运行对象身份桥梁、近期请求入口、Candidate direct Trace 入口和已知 Trace 入口。当前 Core Golden Path 是 `discover -> collect(request_overview candidates) -> inspect candidates -> investigate_trace -> inspect_call_tree`。Advanced Source 可通过固定 `recent-requests --ranking response` recipe 使用 business-system-scoped `responseList`；其 `content[].actionId` 精确进入 `trace/detail.request.actionId`，detail 再提供 `actionGuid` 与 `data.id(traceId)` 给 callTree。该证明不继承到 errorList/throughtList，也不把 responseList 变成 Core 路径。Trace Detail 内嵌 exceptions/stack 与独立 `detail/exceptions` source Evidence 保持分离。
 
 ## 能力覆盖矩阵
 

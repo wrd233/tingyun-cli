@@ -1,6 +1,6 @@
 # Live Testing
 
-Codex 实现阶段默认不发真实听云请求。本仓库测试以 offline/mock 为主。当前状态是 `Golden Path Live-Validated`，范围限定为已测试目标、时间窗口和 runtime version。
+Codex 实现阶段默认不发真实听云请求。本仓库测试以 offline/mock 为主。当前状态是 `Core Golden Path Live-Validated + Integrated Investigation Depth`，范围限定为已测试目标、时间窗口和 runtime version。
 
 需要 Live Validation 时由用户显式发起，并应遵守：
 
@@ -18,6 +18,8 @@ Codex 实现阶段默认不发真实听云请求。本仓库测试以 offline/mo
 ## Controlled Live Golden Path Shape
 
 本 closure pass 不执行真实听云请求。已验证 Golden Path 的运行形状为：
+
+本 branch integration 同样执行 0 次 Live Tingyun 请求。Advanced Source 只通过 synthetic fixtures、fake transport 和既有协议证据验证，因此不得把它们写成 Live-Proven。未来如显式开展 source live validation，应逐能力、一次一个 recipe 记录实际 shape；不能用 responseList 的成功 lineage 泛化 errorList/throughtList。
 
 ```text
 discover              -> 1 logical request

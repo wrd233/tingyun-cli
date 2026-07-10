@@ -4,6 +4,8 @@
 
 Runtime 只允许已登记的 Stable Read Endpoint。未知路径和写路径会被阻断。
 
+安全面分为 Core allowlist 与 Advanced Source allowlist。`responseList` 等高级路径不会通过 Core `assert_read_endpoint`；只有带正式 `ADVANCED_SOURCE` recipe 标记且精确出现在 source allowlist 时才能执行。WRITE/UNKNOWN、research-only 和 orphan path 不进入任一生产 allowlist。
+
 不提供：
 
 ```text
@@ -38,6 +40,8 @@ BLOCKED / LIVE_EXECUTION_BUSY
 且不访问 HTTP。
 
 确定性本地校验先于 Live Lock。无效 source、item、action 或 time shape 不会被 lock 冲突掩盖。
+
+Source capability 同样先验证 capability、source ref、exact identity、time 和 auth，再获取 Live Lock。每个 source invocation 固定一个逻辑请求，不自动分页、不跨 source fanout。
 
 ## Startup Recovery
 
