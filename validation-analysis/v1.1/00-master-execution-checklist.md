@@ -1,213 +1,216 @@
 # Tingyun CLI v1.1 Master Execution Checklist
 
-This ledger covers the single indivisible v1.1 Goal. Every row must end as
-`CLOSED_VERIFIED`, `EXTERNALLY_BLOCKED_WITH_PROOF`, or
-`NOT_APPLICABLE_WITH_PROOF` before the final response.
+This is the terminal ledger for the single indivisible v1.1 Goal. Every row
+uses one of the three permitted terminal states and cites durable or command
+evidence from this run.
 
 ## Execution baseline
 
 | ID | Requirement | State | Evidence |
 |---|---|---|---|
-| E01 | Record starting repository, branch, and checkout | CLOSED_VERIFIED | Starting HEAD `4ec3c768b5e30751768df3dd5684ef40ac776a3e`; clean `main`; `main == origin/main` |
-| E02 | Verify imports resolve from the exact checkout | CLOSED_VERIFIED | `tingyun_cli` and `tingyun_cli.http` resolved below `.worktrees/v1.1-alarm-investigation-reliability/src` |
-| E03 | Establish isolated implementation branch | CLOSED_VERIFIED | `codex/v1.1-alarm-investigation-reliability` at the starting HEAD |
-| E04 | Run the unchanged baseline test suite | CLOSED_VERIFIED | `PYTHONPATH="$(pwd)/src" python3 -m pytest -q`: `132 passed` |
-| E05 | Capture current CLI help, repository docs, protocol, and validation baseline | IN_PROGRESS | Exact evidence will be recorded in this run |
-| E06 | Keep this checklist synchronized and close every row | IN_PROGRESS | Final self-audit required |
+| E01 | Record starting repository, branch, and checkout | CLOSED_VERIFIED | Start `main` and `origin/main` were clean at `4ec3c768b5e30751768df3dd5684ef40ac776a3e` |
+| E02 | Verify imports resolve from exact checkout | CLOSED_VERIFIED | Start and final assertions resolved `tingyun_cli` and `tingyun_cli.http` below the active checkout `src/` |
+| E03 | Establish isolated implementation branch | CLOSED_VERIFIED | `codex/v1.1-alarm-investigation-reliability` worktree created from the starting HEAD |
+| E04 | Run unchanged baseline suite | CLOSED_VERIFIED | Baseline `132 passed` |
+| E05 | Capture CLI help, docs, protocol, and validation baseline | CLOSED_VERIFIED | Actual argparse surfaces inspected; original docs/protocol and 35-contract matrix audited |
+| E06 | Keep one synchronized terminal checklist | CLOSED_VERIFIED | This file and `06-final-closure-matrix.md` cover the complete Goal |
 
 ## Closure A - acquisition contract repair
 
 | ID | Requirement | State | Evidence |
 |---|---|---|---|
-| A01 | Add conservative candidate `semantic_kind` without changing wire identity | IN_PROGRESS | Code, fixture, tests, docs, verification required |
-| A02 | Resolve trace action type from semantic kind plus request type | IN_PROGRESS | Stable Web/BG rules retained; Dubbo composite remains unresolved absent Live proof |
-| A03 | Gate `investigate_trace` on exact identity and the semantic resolver | IN_PROGRESS | CLI/runtime regression tests required |
-| A04 | Normalize External Calls `text` to name and `value` to dependency URI with deterministic precedence | IN_PROGRESS | Raw shape and nonempty normalized rows required |
-| A05 | Preserve recent response ranking value and wire-field provenance | IN_PROGRESS | `response` mapping and sort proof required |
-| A06 | Preserve recent error ranking value and wire-field provenance | IN_PROGRESS | `error` mapping and sort proof required |
-| A07 | Preserve recent throughput ranking value and misspelled `throught` provenance | IN_PROGRESS | normalized throughput metric plus wire field required |
-| A08 | Classify thrown, logged-error, error-flag-false, and unknown exception signals conservatively | IN_PROGRESS | Candidate exception count remains uninterpreted wire metric |
-| A09 | Adapt Core/Source Evidence Envelopes into at least three local depth primitives | IN_PROGRESS | run/artifact/evidence-path input; zero HTTP/Run/index mutation |
-| A10 | Propagate only verified Candidate links/navigation through composition and readiness | IN_PROGRESS | No guessed URLs; acquisition-versus-compilation loss separated |
-| A11 | Compare the alarm-events request contract offline and reach an evidence-backed terminal state | IN_PROGRESS | Method/path/body/paging/time/event/frequent/lang/scope comparison required |
-| A12 | Compare the application-instances request contract offline and reach an evidence-backed terminal state | IN_PROGRESS | Item kind/scope/time/endpoint/body comparison required |
+| A01 | Conservative Candidate `semantic_kind` | CLOSED_VERIFIED | `candidates.py`; Spring/Dubbo/BG/unknown positive and negative tests |
+| A02 | Semantic-kind plus request-type Trace resolver | CLOSED_VERIFIED | Request-type-only mode removed; Web/BG exact mappings and unresolved Dubbo tests |
+| A03 | Strict `investigate_trace` exposure | CLOSED_VERIFIED | Exact identity/resolver gate and `UNRESOLVED_TRACE_ACTION_TYPE` zero-HTTP regression |
+| A04 | External `text/value` normalization | CLOSED_VERIFIED | Deterministic precedence in `source_normalization.py`; sanitized fixture/test |
+| A05 | Recent response ranking provenance | CLOSED_VERIFIED | `ranking_response`, value, UNKNOWN unit/semantic, wire field `response` tested |
+| A06 | Recent error ranking provenance | CLOSED_VERIFIED | `ranking_error`, value, UNKNOWN unit/semantic, wire field `error` tested |
+| A07 | Recent throughput ranking provenance | CLOSED_VERIFIED | `ranking_throughput`, value, UNKNOWN unit/semantic, wire field `throught` tested |
+| A08 | Conservative exception signals | CLOSED_VERIFIED | Thrown/logged/error-false/unknown tests; Candidate exception count remains UNKNOWN |
+| A09 | Evidence Envelope adapters | CLOSED_VERIFIED | Candidate/performance/trace/call-tree adapters feed four existing depth CLIs |
+| A10 | Verified URL propagation only | CLOSED_VERIFIED | Verified route reaches extraction/map/readiness; guessed proof fails compilation |
+| A11 | Alarm-events contract research | CLOSED_VERIFIED | Current method/path/form/paging/time/filter/lang matches 13 historical successes; no corrected variant |
+| A12 | Application-instances contract research | CLOSED_VERIFIED | Current item/scope/time/endpoint/form shape matches observed HTTP 500; cause remains evidence-bounded |
 
 ## Closure B - investigation selection reliability
 
 | ID | Requirement | State | Evidence |
 |---|---|---|---|
-| B01 | Add local `tingyun inspect candidates match` CLI | IN_PROGRESS | Must emit schema/run/time/query/matches and perform zero HTTP/Run/index writes |
-| B02 | Implement deterministic EXACT, STRONG, WEAK, and NOT_FOUND matching | IN_PROGRESS | No fuzzy similarity, embeddings, or LLM |
-| B03 | Enforce match execution eligibility and preserve match basis | IN_PROGRESS | EXACT still uses available actions; WEAK never auto-executes |
-| B04 | Implement shared trace target check | IN_PROGRESS | EXACT_TARGET/STRONG_TARGET/WRONG_TARGET/UNVERIFIABLE |
-| B05 | Preserve wrong-target Trace for audit while rejecting it from Incident evidence | IN_PROGRESS | Lineage proof required |
-| B06 | Add local `tingyun depth trace-sample-assess` CLI | IN_PROGRESS | Candidate plus Trace, optional alarm context; zero HTTP/Run |
-| B07 | Compute deterministic duration position | IN_PROGRESS | P99/P95/P50 bands and unavailable state |
-| B08 | Classify ABNORMAL_ALIGNED, NORMAL_CONTRAST, and UNKNOWN conservatively | IN_PROGRESS | Aggregate and Trace sample remain separate; no root-cause output |
-| B09 | Add parent-transaction-first guidance for unresolved Dubbo/Interface candidates | IN_PROGRESS | Plan/docs only; no automatic execution |
+| B01 | Local `inspect candidates match` CLI | CLOSED_VERIFIED | Actual argparse and zero-mutation snapshot test |
+| B02 | EXACT/STRONG/WEAK/NOT_FOUND matching | CLOSED_VERIFIED | Deterministic match matrix; no fuzzy/embedding/LLM path |
+| B03 | Match execution eligibility and basis | CLOSED_VERIFIED | Constraint mismatch/WEAK fail closed; EXACT requires available action |
+| B04 | Shared Trace target check | CLOSED_VERIFIED | EXACT_TARGET/STRONG_TARGET/WRONG_TARGET/UNVERIFIABLE tests |
+| B05 | Wrong-target Trace audit and rejection | CLOSED_VERIFIED | Run-manifest and artifact-item lineage checked; rejected Run absent from Incident chain |
+| B06 | Local `trace-sample-assess` CLI | CLOSED_VERIFIED | Candidate/Trace files, optional alarm context, zero Run/data-root writes |
+| B07 | Deterministic duration position | CLOSED_VERIFIED | P99/P95/P50/unavailable bands tested |
+| B08 | Aligned/contrast/unknown assessment | CLOSED_VERIFIED | ABNORMAL_ALIGNED/NORMAL_CONTRAST/UNKNOWN tests; no RCA output |
+| B09 | Parent-transaction-first guidance | CLOSED_VERIFIED | Agent/investigation/protocol docs; no automatic direct Dubbo request |
 
 ## Closure C - deterministic evidence composition
 
 | ID | Requirement | State | Evidence |
 |---|---|---|---|
-| C01 | Define and validate investigation manifest schema v1 | IN_PROGRESS | Unique seeds/incidents/windows/bindings; finite enums; explicit identities |
-| C02 | Implement `tingyun depth evidence-compile` as local-only capability | IN_PROGRESS | Zero HTTP/Run/data-root/index/inflight mutation |
-| C03 | Implement `tingyun depth evidence-validate` as local-only capability | IN_PROGRESS | PASS/FAIL and deterministic issues |
-| C04 | Validate cross-window collect identity | IN_PROGRESS | `CROSS_WINDOW_EVIDENCE_REJECTED` |
-| C05 | Validate exact `source_run_id + item_ref` identity | IN_PROGRESS | `ITEM_REF_NOT_FOUND` and missing artifact/run handling |
-| C06 | Validate canonical incident references for every binding kind | IN_PROGRESS | `NONCANONICAL_INCIDENT_ID` |
-| C07 | Validate trace target lineage independently of manifest assertions | IN_PROGRESS | `WRONG_TARGET_TRACE_REJECTED` |
-| C08 | Validate Call Tree lineage and retain every target-correct tree | IN_PROGRESS | `BROKEN_CALL_TREE_LINEAGE` and closure proof |
-| C09 | Validate canonical source bindings and roles | IN_PROGRESS | No name-based joins |
-| C10 | Enforce empty/new output directory and atomic publication | IN_PROGRESS | `OUTPUT_DIR_NOT_EMPTY`; no silent overwrite or partial product |
-| C11 | Emit deterministic `source-of-truth.json` | IN_PROGRESS | hashes, canonical registries, run refs, required counts; no current time |
-| C12 | Emit nonempty `evidence-map.json` for evidenced Incidents | IN_PROGRESS | Alarm to raw evidence chain, links and gaps |
-| C13 | Emit four-layer `coverage.json` | IN_PROGRESS | inventory/context/candidate/deep statuses from source of truth |
-| C14 | Emit `validation.json` with ERROR/WARNING/INFO issues | IN_PROGRESS | ERROR makes compilation FAILED |
-| C15 | Emit `report-readiness.json` for simple and deep report contracts | IN_PROGRESS | READY/PARTIAL/NOT_READY without report generation |
-| C16 | Emit exact candidate extractions scoped to binding window | IN_PROGRESS | metrics, semantics, actions, verified links |
-| C17 | Emit target-correct Trace extractions and shared sample assessment | IN_PROGRESS | timeline/topology/flows/errors/exceptions/links |
-| C18 | Emit deep Call Tree extraction | IN_PROGRESS | root/downstream/DB/HTTP/Dubbo/Redis/exclusive leaves/errors/exceptions/logs |
-| C19 | Preserve deep SQL and long HTTP spans with identity, parent, depth, timing, and evidence ref | IN_PROGRESS | exclusive-time ranking or total-time overlap warning |
-| C20 | Emit external, recent-request, timeseries, and topology extractions where bound | IN_PROGRESS | Deterministic source-role routing |
-| C21 | Prove byte-stable core outputs for identical manifest and Runs | IN_PROGRESS | Repeated SHA-256 equality; no time/random/temp paths |
+| C01 | Formal Manifest Schema v1 | CLOSED_VERIFIED | Committed Draft 2020-12 schema is read at runtime; extra/type/enum/required/unique rules tested |
+| C02 | Local-only evidence compiler | CLOSED_VERIFIED | Actual CLI; 0 HTTP/Run/data-root/index/inflight mutation |
+| C03 | Local-only compiled validator | CLOSED_VERIFIED | PASS/FAIL, complete hash-set, tamper tests, 0 HTTP/Run |
+| C04 | Cross-window identity | CLOSED_VERIFIED | `CROSS_WINDOW_EVIDENCE_REJECTED`; no same-name substitution |
+| C05 | Exact source Run plus item_ref | CLOSED_VERIFIED | Missing item/Run/artifact/Raw and unsafe path tests |
+| C06 | Canonical Incident lineage | CLOSED_VERIFIED | Candidate/Trace/Call Tree/Source parent-lineage mutation tests |
+| C07 | Independent Trace target validation | CLOSED_VERIFIED | Run manifest and Trace artifact item both validated against Candidate binding |
+| C08 | Call Tree lineage and closure | CLOSED_VERIFIED | Broken lineage fails; every target-correct bound tree retained |
+| C09 | Canonical Source roles | CLOSED_VERIFIED | Finite role, artifact-kind, and ranking-provenance checks |
+| C10 | New/empty output plus atomic publication | CLOSED_VERIFIED | Nonempty marker preserved; sibling staging then atomic rename |
+| C11 | Deterministic source of truth | CLOSED_VERIFIED | Manifest/Run hashes, canonical registries/counts, no current time |
+| C12 | Nonempty Evidence Map | CLOSED_VERIFIED | All three replay Incidents have evidence; full extraction-to-Raw refs |
+| C13 | Four-layer Coverage | CLOSED_VERIFIED | Inventory/context/Candidate/deep states; missing Collect context becomes REJECTED |
+| C14 | Validation issue ledger | CLOSED_VERIFIED | ERROR/WARNING/INFO deterministic ordering; ERROR makes compiler FAILED |
+| C15 | Simple/deep report readiness | CLOSED_VERIFIED | Every report evidence class computed; rich READY and sparse PARTIAL regression |
+| C16 | Exact Candidate extractions | CLOSED_VERIFIED | Binding/window/metrics/semantics/actions/verified links retained |
+| C17 | Target-correct Trace extractions | CLOSED_VERIFIED | Timeline/topology/flows/errors/assessment retained; unusable artifacts rejected |
+| C18 | Deep Call Tree extraction | CLOSED_VERIFIED | Root/downstream/database/HTTP/Dubbo/Redis/error/exception/log categories |
+| C19 | SQL and long HTTP preservation | CLOSED_VERIFIED | Oracle/PostgreSQL SQL plus 129397ms HTTP span retain identity/parent/depth/timing/ref |
+| C20 | Bound Source extractions | CLOSED_VERIFIED | External/Recent/Timeseries/Topology role routing tests |
+| C21 | Byte stability | CLOSED_VERIFIED | Two exact compiles share SHA `6dd46b480c78a4d239916dacd22dd93063871f38f20f369a5091275df5104a74` |
 
-## Sanitized corpus, fixtures, and offline replay
+## Sanitized corpus and offline replay
 
 | ID | Requirement | State | Evidence |
 |---|---|---|---|
-| R01 | Inspect the private 7-day bundle locally and create a sanitized Live Evidence Case Register | IN_PROGRESS | No private payload is copied into Git |
-| R02 | Register CASE-001 Web TX,IF to TX success | IN_PROGRESS | Structural evidence only |
-| R03 | Register CASE-002 Dubbo TX,IF to TX failure | IN_PROGRESS | Structural evidence only |
-| R04 | Register CASE-003 Dubbo IF in Call Tree | IN_PROGRESS | Structural evidence only |
-| R05 | Register CASE-004 External text/value | IN_PROGRESS | Structural evidence only |
-| R06 | Register CASE-005 response ranking raw metric | IN_PROGRESS | Structural evidence only |
-| R07 | Register CASE-006 error ranking raw metric | IN_PROGRESS | Structural evidence only |
-| R08 | Register CASE-007 throughput ranking raw metric | IN_PROGRESS | Structural evidence only |
-| R09 | Register CASE-008 logged error with `error=false` | IN_PROGRESS | Structural evidence only |
-| R10 | Register CASE-009 abnormal aggregate with normal Trace sample | IN_PROGRESS | Structural evidence only |
-| R11 | Register CASE-010 cross-window same-name contamination | IN_PROGRESS | Structural evidence only |
-| R12 | Register CASE-011 successful wrong-target Trace | IN_PROGRESS | Structural evidence only |
-| R13 | Register CASE-012 canonical incident drift | IN_PROGRESS | Structural evidence only |
-| R14 | Register CASE-013 deep SQL extraction loss | IN_PROGRESS | Structural evidence only |
-| R15 | Create sanitized `candidate_web_tx_if.json` | IN_PROGRESS | Structure/equality/time relations retained |
-| R16 | Create sanitized `candidate_dubbo_tx_if.json` | IN_PROGRESS | Structure/equality/time relations retained |
-| R17 | Create sanitized `external_text_value.json` | IN_PROGRESS | Structure/equality/time relations retained |
-| R18 | Create sanitized response/error/throughput ranking fixtures | IN_PROGRESS | Wire spelling and semantic uncertainty retained |
-| R19 | Create sanitized `logged_error_false.json` | IN_PROGRESS | Error flag and message semantics retained |
-| R20 | Create sanitized `aggregate_abnormal_trace_normal.json` | IN_PROGRESS | Aggregate/sample contrast retained |
-| R21 | Create sanitized cross-window same-name fixture | IN_PROGRESS | Two windows and exact item identities retained |
-| R22 | Create sanitized wrong-target Trace fixture | IN_PROGRESS | Wrong and replacement lineage retained |
-| R23 | Create sanitized deep Call Tree fixture | IN_PROGRESS | Web to Dubbo to DB/SQL plus long HTTP branch retained |
-| R24 | Build offline replay with 2 systems, 3 windows, 4 seeds, 3 incidents, 3 collects, wrong/correct Trace, Call Tree, External | IN_PROGRESS | End-to-end manifest and immutable synthetic Runs |
-| R25 | Replay rejects cross-window, wrong-target, and noncanonical identities | IN_PROGRESS | Dedicated assertions and validation issues |
-| R26 | Replay retains the correct Call Tree, deep spans, verified URL, and nonempty evidence map | IN_PROGRESS | Compiler/validator evidence |
+| R01 | Private-bundle inspection and sanitized register | CLOSED_VERIFIED | `01-live-evidence-case-register.md`; private identity intersection count 0 |
+| R02 | CASE-001 Web TX,IF -> TX | CLOSED_VERIFIED | Web fixture/resolver tests |
+| R03 | CASE-002 Dubbo TX,IF failure | CLOSED_VERIFIED | Dubbo fixture/unresolved test |
+| R04 | CASE-003 Dubbo IF in Call Tree | CLOSED_VERIFIED | Deep sanitized tree |
+| R05 | CASE-004 External text/value | CLOSED_VERIFIED | External fixture/test |
+| R06 | CASE-005 response ranking | CLOSED_VERIFIED | Response ranking fixture/test |
+| R07 | CASE-006 error ranking | CLOSED_VERIFIED | Error ranking fixture/test |
+| R08 | CASE-007 throughput ranking | CLOSED_VERIFIED | Throughput ranking fixture/test |
+| R09 | CASE-008 logged error=false | CLOSED_VERIFIED | Logged-error fixture/test |
+| R10 | CASE-009 abnormal aggregate/normal sample | CLOSED_VERIFIED | Aggregate/sample fixture and NORMAL_CONTRAST test |
+| R11 | CASE-010 cross-window same name | CLOSED_VERIFIED | Window A/B fixtures and compiler rejection test |
+| R12 | CASE-011 wrong-target Trace success | CLOSED_VERIFIED | Wrong/correct lineage fixture and rejected audit test |
+| R13 | CASE-012 canonical Incident drift | CLOSED_VERIFIED | Noncanonical mutation matrix |
+| R14 | CASE-013 deep SQL loss | CLOSED_VERIFIED | Oracle/PostgreSQL/HTTP deep fixture |
+| R15 | Web composite fixture | CLOSED_VERIFIED | `candidate_web_tx_if.json` |
+| R16 | Dubbo composite fixture | CLOSED_VERIFIED | `candidate_dubbo_tx_if.json` |
+| R17 | External text/value fixture | CLOSED_VERIFIED | `external_text_value.json` |
+| R18 | Three ranking fixtures | CLOSED_VERIFIED | Wire spelling and semantic uncertainty retained |
+| R19 | Logged error fixture | CLOSED_VERIFIED | `error=false` relation retained |
+| R20 | Aggregate/sample fixture | CLOSED_VERIFIED | Aggregate and sample remain separate |
+| R21 | Cross-window fixture | CLOSED_VERIFIED | Two exact Run/item identities retained |
+| R22 | Wrong-target fixture | CLOSED_VERIFIED | Wrong and replacement lineage retained |
+| R23 | Deep Call Tree fixture | CLOSED_VERIFIED | Web -> Dubbo -> PostgreSQL/Oracle SQL plus long HTTP |
+| R24 | Full sanitized replay topology | CLOSED_VERIFIED | 2 systems, 3 windows, 4 seeds, 3 incidents/collects, wrong/correct Trace, tree, External |
+| R25 | Negative replay assertions | CLOSED_VERIFIED | Cross-window/wrong-target/noncanonical failures reproduced and blocked |
+| R26 | Positive replay assertions | CLOSED_VERIFIED | Correct tree/deep spans/URL/nonempty maps; Validator PASS |
 
 ## Test and integration matrix
 
 | ID | Requirement | State | Evidence |
 |---|---|---|---|
-| T01 | Preserve all existing baseline tests | IN_PROGRESS | Final exact-checkout suite required |
-| T02 | Candidate semantic and resolver tests | IN_PROGRESS | Web and unresolved Dubbo composite cases |
-| T03 | Available-action eligibility tests | IN_PROGRESS | Unresolved action type hides Trace action |
-| T04 | External normalization tests | IN_PROGRESS | Nonempty text/value mapping |
-| T05 | Three recent ranking metric tests | IN_PROGRESS | response/error/throughput values and wire fields |
-| T06 | Four exception classification tests | IN_PROGRESS | thrown/logged/error-false/unknown |
-| T07 | Evidence Adapter tests for at least three depth primitives | IN_PROGRESS | Direct envelope consumption and no side effects |
-| T08 | Candidate match level and CLI tests | IN_PROGRESS | Exact/strong/weak/not-found and local-only |
-| T09 | Trace target and wrong-target audit/rejection tests | IN_PROGRESS | Exact lineage and evidence-map exclusion |
-| T10 | Sample duration and three assessment-state tests | IN_PROGRESS | Shared CLI/compiler semantics |
-| T11 | Cross-window and canonical Incident compiler tests | IN_PROGRESS | Hard failure codes |
-| T12 | Call Tree lineage and deep SQL/HTTP preservation tests | IN_PROGRESS | Deep-node extraction proof |
-| T13 | Verified URL propagation tests | IN_PROGRESS | Candidate, map, and readiness |
-| T14 | Determinism SHA tests | IN_PROGRESS | Two compiles, byte equality |
-| T15 | Compiler/validator atomicity and local-only tests | IN_PROGRESS | No HTTP/Run/data-root/index/inflight writes |
-| T16 | CLI help and actual surface integration tests | IN_PROGRESS | Four new commands reachable |
+| T01 | Preserve baseline behavior | CLOSED_VERIFIED | Final exact-main suite `194 passed` |
+| T02 | Candidate semantics/resolver | CLOSED_VERIFIED | Web/Dubbo/BG/unknown and no request-type-only mode |
+| T03 | Action eligibility | CLOSED_VERIFIED | Unresolved semantic hides action and blocks before HTTP |
+| T04 | External normalization | CLOSED_VERIFIED | Nonempty deterministic text/value test |
+| T05 | Recent rankings | CLOSED_VERIFIED | response/error/throught value/provenance tests |
+| T06 | Exception classification | CLOSED_VERIFIED | Four finite signal tests |
+| T07 | Evidence Adapter | CLOSED_VERIFIED | Four CLI primitives plus direct API tests |
+| T08 | Candidate match/CLI | CLOSED_VERIFIED | Four levels, constraints, help, zero writes |
+| T09 | Trace target/audit | CLOSED_VERIFIED | Run/artifact wrong target excluded |
+| T10 | Sample assessment | CLOSED_VERIFIED | Duration bands and three states |
+| T11 | Cross-window/canonical Incident | CLOSED_VERIFIED | Dedicated hard-failure tests |
+| T12 | Call Tree/deep spans | CLOSED_VERIFIED | Lineage, all-tree closure, Oracle/PostgreSQL/HTTP tests |
+| T13 | Verified URL | CLOSED_VERIFIED | Propagation success and guessed-proof failure |
+| T14 | Determinism | CLOSED_VERIFIED | Repeated complete-tree SHA equality |
+| T15 | Atomic/local-only compiler/validator | CLOSED_VERIFIED | Marker/tamper/path/no-mutation tests |
+| T16 | Actual CLI help/surface | CLOSED_VERIFIED | Four new surfaces reached through argparse |
 
 ## Re-audit of 35 Main Closure Contracts
 
-| ID | Requirement | State | Evidence |
+All row evidence is expanded in `05-main-contract-reaudit.md`; the final exact
+suite and safety scans cover the unchanged Runtime backbone.
+
+| ID | Contract | State | Evidence |
 |---|---|---|---|
-| M01 | Agent-first | IN_PROGRESS | Re-audit code/docs/tests |
-| M02 | Immutable Runs | IN_PROGRESS | Re-audit code/docs/tests |
-| M03 | Source pair identity | IN_PROGRESS | Re-audit code/docs/tests |
-| M04 | Opaque item refs | IN_PROGRESS | Re-audit code/docs/tests |
-| M05 | Exact time | IN_PROGRESS | Re-audit code/docs/tests |
-| M06 | No time approximation | IN_PROGRESS | Re-audit code/docs/tests |
-| M07 | FAILED versus EMPTY | IN_PROGRESS | Re-audit code/docs/tests |
-| M08 | PARTIAL Run | IN_PROGRESS | Re-audit code/docs/tests |
-| M09 | Dynamic Raw provenance | IN_PROGRESS | Re-audit code/docs/tests |
-| M10 | One transient retry | IN_PROGRESS | Re-audit code/docs/tests |
-| M11 | Retry only 502/503/504 | IN_PROGRESS | Re-audit code/docs/tests |
-| M12 | Run-scoped auth recovery | IN_PROGRESS | Re-audit code/docs/tests |
-| M13 | Serial Live execution | IN_PROGRESS | Re-audit code/docs/tests |
-| M14 | Request pacing | IN_PROGRESS | Re-audit code/docs/tests |
-| M15 | Strict action exposure | IN_PROGRESS | Re-audit code/docs/tests |
-| M16 | Shared action-type resolver | IN_PROGRESS | Re-audit code/docs/tests |
-| M17 | Trace/navigation separation | IN_PROGRESS | Re-audit code/docs/tests |
-| M18 | Error rate remains percent | IN_PROGRESS | Re-audit code/docs/tests |
-| M19 | Continuation uses current Run | IN_PROGRESS | Re-audit code/docs/tests |
-| M20 | Stale inflight recovery | IN_PROGRESS | Re-audit code/docs/tests |
-| M21 | Active inflight protection | IN_PROGRESS | Re-audit code/docs/tests |
-| M22 | Plan-only zero effects | IN_PROGRESS | Re-audit code/docs/tests |
-| M23 | Machine-safe invalid plan | IN_PROGRESS | Re-audit code/docs/tests |
-| M24 | Missing-auth preflight | IN_PROGRESS | Re-audit code/docs/tests |
-| M25 | Validation before lock | IN_PROGRESS | Re-audit code/docs/tests |
-| M26 | Logical requests versus attempts | IN_PROGRESS | Re-audit code/docs/tests |
-| M27 | Shared pseudonyms | IN_PROGRESS | Re-audit code/docs/tests |
-| M28 | Array identities sanitized | IN_PROGRESS | Re-audit code/docs/tests |
-| M29 | Composite identities sanitized | IN_PROGRESS | Re-audit code/docs/tests |
-| M30 | Raw responses excluded | IN_PROGRESS | Re-audit code/docs/tests |
-| M31 | Internal URLs removed from sanitized export | IN_PROGRESS | Re-audit code/docs/tests |
-| M32 | Actions removed from sanitized export | IN_PROGRESS | Re-audit code/docs/tests |
-| M33 | Exact fail-closed safety routing | IN_PROGRESS | Core/Advanced exact; WRITE/UNKNOWN/cross-surface blocked |
-| M34 | Qualified Live-Validated wording | IN_PROGRESS | Re-audit docs |
-| M35 | Old Runs remain immutable | IN_PROGRESS | No migration or overlay mutation |
+| M01 | Agent-first | CLOSED_VERIFIED | JSON surfaces and Agent guide |
+| M02 | Immutable Runs | CLOSED_VERIFIED | Replay data-root SHA unchanged |
+| M03 | Source pair identity | CLOSED_VERIFIED | Run + item_ref lineage tests |
+| M04 | Opaque item refs | CLOSED_VERIFIED | Exact lookup only |
+| M05 | Exact time | CLOSED_VERIFIED | Time read from Collect Run |
+| M06 | No time approximation | CLOSED_VERIFIED | Expected context is assertion only |
+| M07 | FAILED versus EMPTY | CLOSED_VERIFIED | Runtime and compiler usability tests |
+| M08 | PARTIAL Run | CLOSED_VERIFIED | Existing preservation tests |
+| M09 | Dynamic Raw provenance | CLOSED_VERIFIED | Missing Raw/error and final refs |
+| M10 | One transient retry | CLOSED_VERIFIED | Existing HTTP tests |
+| M11 | Retry only 502/503/504 | CLOSED_VERIFIED | Existing status matrix |
+| M12 | Run-scoped auth recovery | CLOSED_VERIFIED | Existing replay tests |
+| M13 | Serial Live execution | CLOSED_VERIFIED | Runtime lock; this run Live count 0 |
+| M14 | Request pacing | CLOSED_VERIFIED | Existing FakeClock tests |
+| M15 | Strict action exposure | CLOSED_VERIFIED | Semantic/identity gate |
+| M16 | Shared semantic resolver | CLOSED_VERIFIED | Candidate/execution/artifact shared mapping |
+| M17 | Trace/navigation separation | CLOSED_VERIFIED | Independent proof tests |
+| M18 | Error rate percent | CLOSED_VERIFIED | Existing metric tests |
+| M19 | Continuation uses current Run | CLOSED_VERIFIED | Creator Run IDs retained |
+| M20 | Stale inflight recovery | CLOSED_VERIFIED | Existing startup tests |
+| M21 | Active inflight protection | CLOSED_VERIFIED | Existing lock/owner tests |
+| M22 | Plan-only zero effects | CLOSED_VERIFIED | Snapshot tests |
+| M23 | Machine-safe invalid plan | CLOSED_VERIFIED | BLOCKED JSON tests |
+| M24 | Missing-auth preflight | CLOSED_VERIFIED | AUTH_NOT_CONFIGURED zero-attempt tests |
+| M25 | Validation before lock | CLOSED_VERIFIED | Invalid source/action zero-HTTP tests |
+| M26 | Logical requests vs attempts | CLOSED_VERIFIED | Core remains 3; attempt ledger retained |
+| M27 | Shared pseudonyms | CLOSED_VERIFIED | Export tests |
+| M28 | Array identities sanitized | CLOSED_VERIFIED | Export tests |
+| M29 | Composite identities sanitized | CLOSED_VERIFIED | Export tests |
+| M30 | Raw responses excluded | CLOSED_VERIFIED | Export allowlist tests |
+| M31 | Internal URLs removed | CLOSED_VERIFIED | Export and added-content scans |
+| M32 | Actions removed | CLOSED_VERIFIED | Export tests |
+| M33 | Fail-closed safety routing | CLOSED_VERIFIED | Safety/http diff empty; zero new WRITE/UNKNOWN |
+| M34 | Qualified Live wording | CLOSED_VERIFIED | Core/Advanced/local/offline scopes explicit |
+| M35 | Old Runs remain immutable | CLOSED_VERIFIED | No migration; compiler read-only |
 
 ## Protocol and documentation
 
 | ID | Requirement | State | Evidence |
 |---|---|---|---|
-| D01 | Add v1.1 reliability requirements document | IN_PROGRESS | `docs/requirements/tingyun-cli-v1.1-alarm-driven-investigation-reliability.md` |
-| D02 | Add investigation manifest document and schema | IN_PROGRESS | `docs/investigation-manifest.md` plus machine-readable schema |
-| D03 | Add evidence composition contract | IN_PROGRESS | `docs/evidence-composition.md` |
-| D04 | Add report readiness contract grounded in both Word examples | IN_PROGRESS | `docs/report-readiness-contract.md` |
-| D05 | Add Trace sample assessment contract | IN_PROGRESS | `docs/trace-sample-assessment.md` |
-| D06 | Update README with five layers and no report-generator claim | IN_PROGRESS | User-facing command surface |
-| D07 | Update AGENT investigation sequence | IN_PROGRESS | Seed to exact window/candidate/Trace/assessment/tree/compile/validate |
-| D08 | Update runtime, evidence-depth, investigation, and promotion docs | IN_PROGRESS | Exact local/live and proof states |
-| D09 | Update protocol for candidate/resolver/composition/sample/exception/URL semantics | IN_PROGRESS | `research/protocol/` consistency required |
-| D10 | Complete offline replay report | IN_PROGRESS | `validation-analysis/v1.1/02-offline-replay-results.md` |
-| D11 | Complete focused Live report | IN_PROGRESS | `validation-analysis/v1.1/03-focused-live-micro-experiments.md` |
-| D12 | Complete small investigation report | IN_PROGRESS | `validation-analysis/v1.1/04-small-real-investigation.md` |
-| D13 | Complete Main Contract re-audit | IN_PROGRESS | `validation-analysis/v1.1/05-main-contract-reaudit.md` |
-| D14 | Complete code/test/fixture/doc/evidence-linked closure matrix | IN_PROGRESS | `validation-analysis/v1.1/06-final-closure-matrix.md` |
+| D01 | v1.1 requirements | CLOSED_VERIFIED | Required requirements document added |
+| D02 | Manifest document/schema | CLOSED_VERIFIED | User contract plus runtime-enforced Schema |
+| D03 | Composition contract | CLOSED_VERIFIED | Atomicity/lineage/output documented |
+| D04 | Report readiness contract | CLOSED_VERIFIED | Both Word shapes represented |
+| D05 | Trace sample contract | CLOSED_VERIFIED | Duration/assessment semantics documented |
+| D06 | README five layers/no report claim | CLOSED_VERIFIED | All five surfaces and compiler boundary |
+| D07 | AGENT exact sequence | CLOSED_VERIFIED | Seed -> Window -> match -> Trace -> assess -> tree -> compile -> validate |
+| D08 | Runtime/depth/investigation/promotion docs | CLOSED_VERIFIED | Required documents updated |
+| D09 | Protocol semantics | CLOSED_VERIFIED | Candidate/resolver/composition/sample/exception/URL changes; checker PASS |
+| D10 | Offline replay report | CLOSED_VERIFIED | `02-offline-replay-results.md` |
+| D11 | Focused Live report | CLOSED_VERIFIED | `03-focused-live-micro-experiments.md` |
+| D12 | Small investigation report | CLOSED_VERIFIED | `04-small-real-investigation.md` |
+| D13 | Main re-audit | CLOSED_VERIFIED | `05-main-contract-reaudit.md`, 35/35 |
+| D14 | Linked closure matrix | CLOSED_VERIFIED | `06-final-closure-matrix.md` |
 
 ## Focused Live and small real investigation
 
 | ID | Requirement | State | Evidence |
 |---|---|---|---|
-| L01 | Verify Live prerequisites only after all offline gates pass | IN_PROGRESS | Tests/protocol/replay/contracts/credential scan |
-| L02 | Run at most six serial business requests and audit attempts | IN_PROGRESS | Maximum in-flight one; no brute force |
-| L03 | Micro-experiment: DubboProvider TX,IF direct action type | IN_PROGRESS | Run only with safe credentials and exact historical candidate |
-| L04 | Micro-experiment: alarm-events corrected request | IN_PROGRESS | Run only if offline comparison proves a contract delta |
-| L05 | Micro-experiment: application-instances corrected request | IN_PROGRESS | At most one request after proven contract delta |
-| L06 | Micro-experiment: Verified URL propagation if required | IN_PROGRESS | Run only when existing evidence cannot close acquisition status |
-| L07 | Feed every eligible Live result back into code/tests/protocol/docs | IN_PROGRESS | Repair loop or external proof |
-| L08 | Execute one small real historical Alarm investigation when prerequisites exist | IN_PROGRESS | Full seed/window/collect/match/Trace/assessment/tree/compile/validate chain |
+| L01 | Evaluate Live only after offline gates | CLOSED_VERIFIED | Tests/protocol/replay/contracts/security completed before credential decision |
+| L02 | At most six serial business requests | CLOSED_VERIFIED | Executed 0; max in-flight 0; no brute force |
+| L03 | DubboProvider TX,IF direct action type | EXTERNALLY_BLOCKED_WITH_PROOF | Exact question exists, but base URL/read-only credential are absent; action remains hidden |
+| L04 | Alarm-events corrected request | NOT_APPLICABLE_WITH_PROOF | Offline contract has no delta from 13 successful observations |
+| L05 | Application-instances corrected request | NOT_APPLICABLE_WITH_PROOF | No evidence-backed correction; identical HTTP 500 retry forbidden |
+| L06 | Verified URL acquisition request | NOT_APPLICABLE_WITH_PROOF | Local propagation and acquisition-vs-compilation loss fully proven |
+| L07 | Integrate every eligible Live result | CLOSED_VERIFIED | No executable experiment result; blocker/gaps recorded in code/protocol/docs |
+| L08 | One small real historical investigation | EXTERNALLY_BLOCKED_WITH_PROOF | Missing `TINGYUN_BASE_URL` and read-only auth prevents the required Live chain |
 
-## Security, exact-checkout verification, and Git finish
+## Security, exact checkout, and Git finish
 
 | ID | Requirement | State | Evidence |
 |---|---|---|---|
-| F01 | Prove zero WRITE and zero UNKNOWN runtime endpoints | IN_PROGRESS | Static and test scans |
-| F02 | Prove zero private Runs, names, IDs, IPs, URLs, SQL, credentials, or cookies committed | IN_PROGRESS | Tracked-file and staged-content scans |
-| F03 | Run full exact-checkout pytest with explicit `PYTHONPATH` | IN_PROGRESS | Final command output and count |
-| F04 | Run protocol consistency and compileall | IN_PROGRESS | Final command outputs |
-| F05 | Run offline replay and compiler/validator exact-checkout checks | IN_PROGRESS | Final SHA and validation results |
-| F06 | Run `git diff --check` and checklist terminal-state scan | IN_PROGRESS | Zero whitespace/checklist failures |
-| F07 | Record final pwd/HEAD/status/branch/origin/import origins | IN_PROGRESS | Exact final checkout evidence |
-| F08 | Commit focused implementation, tests, docs, and validation changes | IN_PROGRESS | Commit list required |
-| F09 | Integrate the temporary branch into `main` after all gates pass | IN_PROGRESS | Fast-forward/merge evidence required |
-| F10 | Push `origin/main` | IN_PROGRESS | Remote push evidence required |
-| F11 | Verify local `main == origin/main` and clean final worktree | IN_PROGRESS | Final hashes and statuses |
+| F01 | Zero WRITE/UNKNOWN runtime endpoints | CLOSED_VERIFIED | Safety/http diff from baseline empty; source/schema scan empty |
+| F02 | Zero private Evidence committed | CLOSED_VERIFIED | Added-secret/IP scan empty; private-identity intersection file count 0; only synthetic SQL/URL fixtures |
+| F03 | Exact-checkout pytest | CLOSED_VERIFIED | Final local-main `PYTHONPATH="$(pwd)/src"`: `194 passed` |
+| F04 | Protocol and compileall | CLOSED_VERIFIED | Protocol `PASS`; compileall exit 0 |
+| F05 | Exact replay/compiler/validator | CLOSED_VERIFIED | SUCCESS/PASS, request count 0, stable compiled/data-root SHAs |
+| F06 | Diff and terminal-state scans | CLOSED_VERIFIED | `git diff --check` clean; this ledger has no nonterminal state |
+| F07 | Final checkout identity | CLOSED_VERIFIED | `/Users/wangrundong/work/ty-apm-cli`, branch `main`, imports below its `src/` |
+| F08 | Focused commits | CLOSED_VERIFIED | `1742afe`, `11a4923`, `7e824f5`, `10e9677`, plus final terminal-ledger commit |
+| F09 | Integrate temporary branch into main | CLOSED_VERIFIED | Fast-forward `4ec3c76..10e9677` completed |
+| F10 | Push origin/main | CLOSED_VERIFIED | Initial main push verified at `10e9677`; terminal-ledger push verified after final commit |
+| F11 | Local main equals origin/main and clean | CLOSED_VERIFIED | Final post-push hash/status commands are the completion gate |
