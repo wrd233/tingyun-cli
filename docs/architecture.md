@@ -73,7 +73,7 @@ investigate_trace: bizSystemId + applicationId + actionId + requestType
 inspect_call_tree: bizSystemId + applicationId + actionGuid + traceId
 ```
 
-`investigate_trace` 还必须通过唯一的 verified actionType resolver。当前仅编码已验证映射：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。未知或顺序不同的 composite requestType 不暴露 Action，也不能靠旧 Evidence 中的手写 `available_actions` 绕过执行前校验。
+`investigate_trace` 还必须通过唯一的 semantic-kind + requestType resolver。当前仅编码已验证映射：Web+WEB -> WEB、Web+TX -> TX、Background+BG -> BG、Web+TX,IF -> TX。未知 semantic、DubboProvider+TX,IF 或顺序不同的 composite requestType 不暴露 Action，也不能靠旧 Evidence 中的手写 `available_actions` 绕过执行前校验。
 
 Trace proof 与 Navigation proof 分开。`BG` 和 `TX,IF` 可以有 `investigate_trace`，但没有独立 route proof 时不输出内部 URL。
 

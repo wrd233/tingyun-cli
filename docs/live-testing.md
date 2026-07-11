@@ -38,7 +38,7 @@ Live 验收时逐项检查：
 - retry/auth replay 后 Artifact `derived_from` 指向最终支撑 raw ref；
 - `coverage.json` 包含 attempt、retry、auth metadata；
 - Candidate metric 与 `available_actions` 身份门槛符合 contract，`error_rate` 使用 percent 数值；
-- Trace actionType 只使用已验证 resolver 映射：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`；
+- Trace actionType 只使用已验证 semantic-kind + requestType 映射：Web+WEB -> WEB、Web+TX -> TX、Background+BG -> BG、Web+TX,IF -> TX；
 - Trace normalized evidence 包含 summary、timeline、trace topology、service flow、exceptions、embedded stack 和 context；
 - verified URL 只在完整 identity 和独立 route proof 上出现；Trace proof 不自动产生 Navigation proof；
 - sanitized export 不含凭据、内部 identity、可执行 actions 或可点击内部 URL。

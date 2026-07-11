@@ -1,15 +1,16 @@
-# Tingyun CLI v1
+# Tingyun CLI v1.1
 
 听云 APM 调查 CLI v1 是一个面向 Agent 的只读事实获取工具。它的核心资产不是终端表格或诊断报告，而是每次真实访问后留下的不可变 Run、Raw Wire Evidence、Normalized Evidence、Coverage 和调查血缘。
 
 当前状态：`Core Golden Path Live-Validated + Integrated Investigation Depth`。Live-validated 只限定已测试的 Core 目标、时间窗口和 runtime version；新 Advanced Source Capabilities 依据既有协议证据分级，不声明全部 Live-Proven。
 
-## 四层入口
+## 五层入口
 
 - **Core Golden Path**：`discover`、`collect`、`inspect candidates`、`investigate`；只读服务端并创建不可变 Run（`inspect` 除外）。
 - **Advanced Read-only Source Surface**：`source ...`；一次一个固定 READ recipe，创建 SOURCE Run。
 - **Local Investigation Depth**：`depth ...`；完全本地，0 HTTP、0 Run。
 - **Workflow Plans**：`depth workflow-plan ...`；只生成确定性计划，不自动执行任何服务端请求。
+- **Deterministic Evidence Composition**：`depth evidence-compile/evidence-validate`；把显式 Manifest 和不可变 Runs 编译为可验证 Evidence Map，0 HTTP、0 Run。
 
 ## 是什么
 
@@ -95,6 +96,26 @@ tingyun source trace-exceptions --source-run-id run-... --source-item-ref item-0
 ## Local Investigation Depth
 
 `depth` 提供 promotion matrix、trace candidates/selection、window narrowing/peak、path/error triage、window/tree comparison、external candidate analysis 和五个 workflow plans。所有 `depth` 命令不加载 transport、不创建 data root、不写 `.inflight/` 或 `runs.jsonl`。workflow plan 只返回确定性步骤、能力可用性、逻辑请求预算和 blockers，不自动执行。
+
+Candidate 可先用确定性匹配定位，Trace 样本可与聚合指标分开评估：
+
+```bash
+tingyun inspect candidates match --run-id run-... --name "SpringController/example" --application "Example"
+tingyun depth trace-sample-assess --candidate candidates.json --candidate-item-ref item-0001 --trace trace.json --alarm-metric response_time
+```
+
+匹配只使用 exact/substring/route 等稳定规则，不使用模糊相似度、Embedding 或 LLM。DubboProvider + `TX,IF` 在缺少直接 Live proof 时不暴露 `investigate_trace`，并以 `UNRESOLVED_TRACE_ACTION_TYPE` 关闭。
+
+## Deterministic Evidence Composition
+
+```bash
+tingyun depth evidence-compile --manifest investigation-manifest.json --output-dir compiled
+tingyun depth evidence-validate --compiled-dir compiled
+```
+
+编译器验证 Window、`source_run_id + item_ref`、canonical Incident、Trace target、Call Tree 和 Source role 血缘，输出 source of truth、Evidence Map、四层 coverage、validation、report readiness 和深层提取。相同 Manifest + Runs 必须产生 byte-stable 输出。它只编译证据并评估 readiness，不生成 Word/Markdown 报告、RCA 或下一步 Live 请求。
+
+Manifest 与输出合同见 `docs/investigation-manifest.md`、`docs/evidence-composition.md` 和 `docs/report-readiness-contract.md`。
 
 ## Run 位置
 

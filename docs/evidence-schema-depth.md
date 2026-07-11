@@ -11,3 +11,12 @@ Depth schemas are bounded additions, not a universal Evidence ontology.
 - SOURCE Items point `source_run_id` to their current SOURCE Run and use `source_refs` for Raw provenance.
 
 Completeness uses `FULL` only when an observed total is covered; otherwise `BOUNDED` or `UNKNOWN`. `overview.max` stays UNKNOWN and fixed-duration clusters stay candidate signals.
+
+## v1.1 evidence identity
+
+- Candidate evidence preserves labels and exact wire identity while adding conservative `semantic_kind` and explicit action resolution.
+- Composite `requestType` is a wire label, not semantic identity. The resolver requires both semantic kind and the exact label.
+- Exception signals are `THROWN_EXCEPTION`, `LOGGED_ERROR_EVENT`, `ERROR_FLAG_FALSE_LOG_EVENT`, or `UNKNOWN_EXCEPTION_SIGNAL`; Candidate exception counts remain semantically unknown.
+- Evidence Envelope adapters expose Candidate rows, performance windows, exception events, and recursive Call Trees to existing bounded primitives without editing the source artifact.
+- Compiled evidence uses Manifest binding identity, never same-name lookup. Deep spans retain node ID, parent, depth, total/exclusive time, type/name, and evidence ref.
+- Only `LIVE_OBSERVED` and `DERIVED_FROM_VERIFIED_ROUTE` links propagate as verified navigation.

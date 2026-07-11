@@ -1,11 +1,29 @@
 # Agent Operating Guide
 
-## 四层入口
+## 五层入口
 
 - Core Golden Path：`discover -> collect -> inspect candidates -> investigate_trace -> inspect_call_tree`，其中 Live 命令只读服务端并创建不可变 Run。
 - Advanced Source：`source ...`，一次执行一个显式 READ recipe 并创建 SOURCE Run。
 - Local Investigation Depth：`depth ...`，0 HTTP、0 Run。
 - Workflow Plans：`depth workflow-plan ...`，只输出计划、预算和 blocker，不执行计划。
+- Deterministic Evidence Composition：`depth evidence-compile/evidence-validate`，只读已有 Runs 并生成独立编译目录，0 HTTP、0 Run。
+
+## Alarm-driven exact investigation
+
+```text
+Alarm Seed
+-> exact historical Window
+-> collect
+-> inspect candidates match
+-> exact source_run_id + item_ref
+-> investigate_trace
+-> trace-sample-assess
+-> inspect_call_tree
+-> evidence-compile
+-> evidence-validate
+```
+
+Manifest 必须显式绑定 Seed、Incident、Window 和每个 Run；不要按名称连接。错目标 Trace 即使 HTTP 成功，也只能进入 rejected audit，不能进入 Incident Evidence Map。正常 Trace 样本与异常 Candidate aggregate 可以同时成立，必须保留为 counter-signal。
 
 ## Golden Path
 
@@ -71,7 +89,7 @@ Local-only Surface：promotion matrix、trace candidates/selection、window narr
 
 SQL、Stack、Logs、NoSQL、MQ 等保留在研究协议中；未进入 Runtime Stable Surface 前不要调用。
 
-`investigate_trace` 的 requestType 只使用已验证 resolver：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。未知 composite 不猜测。
+`investigate_trace` 使用 semantic kind + requestType resolver：Web `WEB -> WEB`、Web `TX -> TX`、Web `TX,IF -> TX`、Background `BG -> BG`。DubboProvider `TX,IF` 和其他未知 composite 不猜测，也不暴露 action。
 
 即使旧 Run 中某个 Item 手工包含 `available_actions`，`investigate` 仍会在发起 HTTP 前重新校验 action-specific wire identity 和 resolver；不完整或未验证则生成 `BLOCKED / ACTION_IDENTITY_INCOMPLETE`，且 `live_request_count = 0`。
 
