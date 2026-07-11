@@ -45,7 +45,11 @@ Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变
 
 Candidate Dataset 的 Primary Stable Source 已确定为 `POST /server-api/graph/query/overview?request_overview`。真实 Session `session-acce84d0-9163-41a5-b151-9bec4b904b5f` 中四组 request_overview List API 返回 819、862、1000、1000 行，字段包含 `actionId`、`applicationId`、`systemId`、`actionName`、`applicationName`、P50/P75/P95/P99、平均响应、吞吐、请求数、错误、慢请求和异常计数。`errorRate` 的 normalized runtime 单位是 percent，不是 ratio。对应 Export 只保留展示字段和指标，不能保留完整执行身份，因此 v1 Runtime 不再把 Export/Download 作为 Candidate fallback。返回 1000 行只记录为已观察边界，不证明全量。
 
-Candidate -> Trace 的 v1 runtime resolver 只编码已验证映射：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。同一 Candidate identity 的受控比较显示 `actionType="TX,IF"` 返回 200/404 no-match，而 `actionType="TX"` 成功返回 Trace identity；因此不能使用通用 `split(",")` 规则，也不能把 `IF,TX`、`BG,IF`、`TX,BG` 等未知 composite 外推为可执行。Trace proof 与 Navigation proof 独立；`BG` 和 `TX,IF` 的 Trace success 不证明 `/web/server/action/overview/...` route。
+Candidate -> Trace 的 v1.1 runtime resolver 以 `semantic_kind + wire requestType` 为输入：Web `WEB -> WEB`、Web `TX -> TX`、Web `TX,IF -> TX`、Background `BG -> BG`。同一 Web Candidate identity 的受控比较显示 `actionType="TX,IF"` 返回 200/404 no-match，而 `actionType="TX"` 成功返回 Trace identity；该证明不能外推到 DubboProvider。`DubboProvider + TX,IF` 保持 `UNRESOLVED_TRACE_ACTION_TYPE` 并关联 `gap_dubbo_provider_trace_action_type`。不得使用通用 `split(",")`，也不能把 `IF,TX`、`BG,IF`、`TX,BG` 等未知 composite 外推为可执行。Trace proof 与 Navigation proof 独立；只有 `LIVE_OBSERVED` 或 `DERIVED_FROM_VERIFIED_ROUTE` 链接可传播。
+
+v1.1 的本地调查合同把 Candidate 匹配限定为 `EXACT/STRONG/WEAK/NOT_FOUND`，执行身份始终是 exact `collect_run_id + item_ref`。Trace target 必须独立检查 `source_run_id + source_item_ref`；成功的 wrong-target Trace 只进入 rejected audit。Trace 样本与 Candidate 聚合分别保留，输出 `ABNORMAL_ALIGNED/NORMAL_CONTRAST/UNKNOWN`，不输出根因。Exception Evidence 区分 thrown、logged error、`error=false` log event 与 unknown；Candidate `exception_count` 继续保持 UNKNOWN 语义。
+
+Deterministic Evidence Composition 通过显式 Investigation Manifest 绑定 Alarm、Incident、Window、Candidate、Trace、Call Tree 与 Source，输出 source-of-truth、Evidence Map、coverage、validation、report readiness 和 deep extractions。相同 Manifest + immutable Runs 必须 byte-stable；编译器/验证器 0 HTTP、0 Run，不生成报告。`alarm-events` 当前请求与 13 次历史成功合同完全一致，因此没有修正版 Live 实验；`application-instances` 当前请求与 observed HTTP 500 同形，原因记录为 `gap_application_instances_http_500`，不能解释为无实例或权限问题。
 
 ### 问题溯源
 
@@ -118,7 +122,7 @@ Candidate -> Trace 的 v1 runtime resolver 只编码已验证映射：`WEB -> WE
 | Business-System Response Series | `POST /server-api/application/charts/response` with `businessType="BIZ_SYSTEM"` | 同一 micro run 确认 business-system scope 响应时间序列可执行，返回响应时间、P50、P80、P95、P99 五组 30 点 ms series，overview avg=22、max=160585。 |
 | Same-Run Core Collect Raw Correction | first controlled Golden Path collect raw responses | 本地 reprocessing 证明旧 normalized `EMPTY` 是 normalizer 缺口：当前 topology normalizer 从同一 Raw 得到 SUCCESS、13 nodes、38 edges；performance normalizer 得到 SUCCESS、overview present、response_avg/P50/P80/P95/P99 各 30 点。旧 Run 不改写。 |
 | Recent Request List | `POST /server-api/webaction/list/responseList` -> `response.data.content[].actionId` | `actionId` 是已验证的 recent-request item 输出；本结论只覆盖 responseList live sample，不自动扩展到 throughtList/errorList。 |
-| Candidate Trace Detail | `POST /server-api/action/trace/detail` request `actionId` + verified `actionType` | v1 runtime only: `WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。未知 composite withheld。 |
+| Candidate Trace Detail | `POST /server-api/action/trace/detail` request `actionId` + verified `actionType` | v1.1 semantic resolver only: Web+WEB -> WEB、Web+TX -> TX、Background+BG -> BG、Web+TX,IF -> TX；未知 semantic/composite withheld。 |
 | Recent Request Trace Detail | `POST /server-api/action/trace/detail` request `actionId` | research/protocol path: 当前 live-observed responseList shape 中，`actionId` 足以作为 detail 身份输入，无需先经 action/get 或 action/alias 转换为 actionGuid。 |
 | Call Tree | `trace/detail.response.actionGuid` -> `callTree.request.actionGuid`; `trace/detail.response.data.id` -> `callTree.request.traceId` | 两个下游参数均为 exact value match；callTree 返回非空完整调用树。 |
 

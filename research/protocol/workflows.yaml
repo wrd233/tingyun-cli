@@ -26,6 +26,15 @@
       "names": ["slow_transaction", "external_dependency_timeout", "instance_anomaly", "transaction_error", "alarm_to_trace"]
     }
   },
+  "runtime_integration_2026_07_11_v1_1": {
+    "status": "Offline-Verified Alarm Investigation Reliability",
+    "execution": "semantic repair, exact selection, and deterministic composition are local-only",
+    "candidate_semantics": "semantic_kind plus exact wire requestType; no composite splitting",
+    "trace_target_rule": "HTTP success is insufficient; source_run_id plus source_item_ref is checked independently",
+    "composition": "explicit Investigation Manifest plus immutable Runs; zero HTTP and zero Run",
+    "excluded_access": ["WRITE", "UNKNOWN"],
+    "qualification": "does not add or promote an endpoint and does not claim DubboProvider TX,IF direct Trace proof"
+  },
   "capabilities": [
     {
       "id": "list_business_systems",
@@ -501,6 +510,51 @@
       ],
       "semantic": "真实观察到读取、修改、回读/恢复候选链路；不做回放验收。",
       "verification": "VERIFIED"
+    },
+    {
+      "id": "normalize_candidate_semantics",
+      "title": "Candidate 语义与 actionType 解析",
+      "inputs": ["Candidate Evidence Envelope", "semantic_kind", "wire requestType"],
+      "outputs": ["conservative semantic kind", "resolved or unresolved Trace action type", "strict available_actions"],
+      "uses": [],
+      "semantic": "Web、Background、DubboProvider 与 Unknown 保守分类；Web TX,IF 可解析为 TX，DubboProvider TX,IF 在直接 Live proof 前保持 UNRESOLVED_TRACE_ACTION_TYPE。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "match_investigation_candidate",
+      "title": "历史 Candidate 确定性匹配",
+      "inputs": ["exact Collect Run", "Candidate item_ref/name/application/route/requestType constraints"],
+      "outputs": ["EXACT/STRONG/WEAK/NOT_FOUND", "match basis", "execution eligibility"],
+      "uses": [],
+      "semantic": "名称只用于发现；执行身份始终是 exact collect_run_id + item_ref。WEAK 不可自动执行。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "assess_trace_sample",
+      "title": "Trace 样本与聚合指标分离评估",
+      "inputs": ["Candidate aggregate", "target-correct Trace", "optional alarm metric"],
+      "outputs": ["duration position", "ABNORMAL_ALIGNED/NORMAL_CONTRAST/UNKNOWN", "counter-signals"],
+      "uses": [],
+      "semantic": "样本不代表聚合；正常 Trace 与异常 Candidate 可同时保留，不输出根因。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "compile_investigation_evidence",
+      "title": "确定性 Evidence Composition",
+      "inputs": ["Investigation Manifest v1", "immutable Runs"],
+      "outputs": ["source of truth", "Evidence Map", "coverage", "validation", "report readiness", "deep extractions"],
+      "uses": [],
+      "semantic": "验证 Window、Item、Incident、Trace、Call Tree、Source 与 Raw 血缘；只传播已验证 URL；相同输入 byte-stable；不生成报告。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "validate_compiled_evidence",
+      "title": "编译证据验证",
+      "inputs": ["compiled evidence directory"],
+      "outputs": ["PASS or FAIL", "deterministic issue list"],
+      "uses": [],
+      "semantic": "校验核心输出、hash、source-of-truth counts 与非空 Evidence Map；0 HTTP、0 Run。",
+      "verification": "VERIFIED"
     }
   ],
   "recipes": [
@@ -658,6 +712,31 @@
         "actionGuid.value == traceGuid.value 只记录为本次 live sample 观察，不建立语义等价、fallback 或自动互换规则",
         "stack、agent context、log search 是 optional enrichment；PARTIALLY_VERIFIED 不作为 VERIFIED 核心链必需步骤",
         "空日志结果只证明 envelope，不证明 item 字段"
+      ]
+    },
+    {
+      "id": "alarm_driven_investigation_reliability",
+      "title": "Alarm Seed 到确定性 Evidence Map",
+      "verification": "PARTIALLY_VERIFIED",
+      "inputs": ["external Alarm Seed", "exact historical time context", "explicit Investigation Manifest"],
+      "steps": [
+        {"capability": "list_alarm_events", "required": false},
+        {"capability": "list_request_overview_candidates", "required": true},
+        {"capability": "normalize_candidate_semantics", "required": true},
+        {"capability": "match_investigation_candidate", "required": true},
+        {"capability": "get_trace_detail", "required": false},
+        {"capability": "assess_trace_sample", "required": false},
+        {"capability": "get_trace_call_tree", "required": false},
+        {"capability": "compile_investigation_evidence", "required": true},
+        {"capability": "validate_compiled_evidence", "required": true}
+      ],
+      "rules": [
+        "Window 来自 bound Collect Run，不复制或近似时间范围",
+        "Candidate、Trace、Call Tree 和 Source 只按显式身份连接，不按名称连接",
+        "错目标 Trace 保留审计但不得进入 Incident Evidence Map",
+        "DubboProvider TX,IF 从 parent transaction first 调查，不猜 direct actionType",
+        "仅传播 LIVE_OBSERVED 或 DERIVED_FROM_VERIFIED_ROUTE URL",
+        "编译与验证不执行 Live 请求、不创建 Run、不生成报告"
       ]
     }
   ]

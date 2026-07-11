@@ -119,7 +119,7 @@ validation task:
 
 ## gap_runtime_to_trace_list: transaction/actionItemList actionId 冷启动来源未证明
 
-- 已知事实：Core Golden Path 已通过 request_overview Candidate -> `trace/detail` -> `callTree` 验证，且 runtime 只使用 exact actionType resolver：`WEB -> WEB`、`TX -> TX`、`BG -> BG`、`TX,IF -> TX`。`list_recent_requests` / `responseList` -> `trace/detail` -> `callTree` 也已由 `live_evidence_round_2_2026-07-07` 证明，现在只通过正式 Advanced Source response-ranking recipe 进入，不属于 Core；`actionItemList` 仍需要前置 `actionId`。
+- 已知事实：Core Golden Path 已通过 request_overview Candidate -> `trace/detail` -> `callTree` 验证；v1.1 resolver 只接受 Web+WEB -> WEB、Web+TX -> TX、Background+BG -> BG、Web+TX,IF -> TX。`list_recent_requests` / `responseList` -> `trace/detail` -> `callTree` 也已由 `live_evidence_round_2_2026-07-07` 证明，现在只通过正式 Advanced Source response-ranking recipe 进入，不属于 Core；`actionItemList` 仍需要前置 `actionId`。
 - 缺失证据：Application / transaction context 如何获得 `actionItemList` 所需的冷启动 `actionId` 尚未证明；可能来自 URL、页面状态、前置请求或其他 observed READ response，但当前协议不能假设来源。
 - 对能力影响：不影响 v1 Golden Path；`alarm_to_trace` 中通过 transaction/actionItemList 枚举 Trace 的路径仍为 PARTIALLY_VERIFIED；`list_recent_requests` -> Trace 子路径已升级为 VERIFIED。
 - live_evidence_round_1 (2026-07-07): PARTIAL — 4 次只读请求；确认 `actionItemList` 缺少 `actionId` 时失败，`responseList` 无需 `actionId` 但当时目标业务系统无活跃数据。Raw evidence local-only on validation host; durable migration pending。
@@ -261,3 +261,33 @@ validation task:
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
 - success criteria: 每个动态 ID 和恢复 payload 均有证据。
 - do not assume: 不得设计 dry-run/rollback 执行框架。
+## gap_dubbo_provider_trace_action_type: DubboProvider TX,IF direct Trace actionType 未证明
+
+- 已知事实：Web transaction + `TX,IF` 使用 `actionType=TX` 有成功 Trace 证据；私有七日证据中 DubboProvider + `TX,IF` 沿用 TX 时失败，Call Tree 内 Dubbo span 可显示 IF。
+- 缺失证据：同一 DubboProvider Candidate 对 direct `actionType=IF` 的受控只读成功样本。
+- 对能力影响：`DUBBO_PROVIDER_INTERFACE + TX,IF` 返回 `UNRESOLVED_TRACE_ACTION_TYPE`，不暴露 `investigate_trace`；建议从已验证 parent Web transaction 进入 Trace/Call Tree，但不自动执行。
+- 下一次 Capture 要补什么：在具备凭据和 exact historical Candidate 时，串行执行至多一个 `actionType=IF` focused READ 请求并保存 request/response lineage。
+- 成功判定条件：同一 Candidate exact identity 返回 target-correct Trace，且无 WRITE/UNKNOWN endpoint。
+- 禁止假设：不得把 Web TX 证明、Call Tree 的 IF 标签或 composite 字符串拆分当作 direct Dubbo Trace 证明。
+- related_capabilities:
+  - `normalize_candidate_semantics`
+  - `get_trace_detail`
+- related_endpoints:
+  - `ep_post_server_api_action_trace_detail`
+- related_recipes:
+  - `alarm_driven_investigation_reliability`
+
+## gap_application_instances_http_500: application-instances 同形请求 HTTP 500
+
+- 已知事实：Observed 请求是 POST `/server-api/graph/information` form body，字段为 `bizSystemId/applicationId/timePeriod/endTime/lang`；当前 CLI request shape 与其完全一致。该请求返回 HTTP 500。
+- 缺失证据：不存在一个有证据支持的修正字段、scope、endpoint 或 body kind，也没有当前可用只读凭据。
+- 对能力影响：实例 Source 的 Live 合同保持 unresolved；HTTP 500 不能解释为无实例、无指标或权限不足。离线 normalization 和 composition 仍可验证。
+- 下一次 Capture 要补什么：先从浏览器成功实例页获取同环境 exact request contract；只有合同出现明确差异后才执行一次 focused READ。
+- 成功判定条件：修正合同得到非错误业务响应并保存 instance item shape。
+- 禁止假设：不得重复相同失败请求，不得更换未证明 endpoint，不得从 HTTP 500 推断空数据或权限原因。
+- related_capabilities:
+  - `read_application_overview`
+- related_endpoints:
+  - `ep_post_server_api_graph_information`
+- related_recipes:
+  - `alarm_driven_investigation_reliability`

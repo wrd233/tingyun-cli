@@ -26,6 +26,14 @@
     "excluded_access": ["WRITE", "UNKNOWN"],
     "qualification": "advanced source runtime exposure does not imply all-capability Live proof"
   },
+  "runtime_integration_2026_07_11_v1_1": {
+    "status": "No endpoint promotion; offline reliability closure only",
+    "alarm_events_contract": "current POST form shape exactly matches 13 historical successful observations; no corrected variant exists",
+    "application_instances_contract": "current POST form shape matches the observed HTTP 500 request; cause remains unresolved and no identical retry is authorized",
+    "semantic_repairs": ["candidate semantic kind", "recent ranking wire provenance", "external text/value", "exception signal class"],
+    "composition": "local-only explicit manifest compiler and validator",
+    "excluded_access": ["WRITE", "UNKNOWN"]
+  },
   "coverage": {
     "sessions_processed": "6/6",
     "session_files_inspected": "2943/2943",
