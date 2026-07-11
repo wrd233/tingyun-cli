@@ -381,7 +381,7 @@ def test_response_ranking_alone_can_expose_main_verified_trace_action(tmp_path):
         "kind": "business_system_candidate",
         "wire_identity": {"bizSystemId": "1061"},
     })
-    row = {"applicationId": "1626", "actionId": "13172", "requestType": "TX,IF", "actionName": "work"}
+    row = {"applicationId": "1626", "actionId": "13172", "requestType": "TX,IF", "actionName": "SpringController/example/work"}
 
     receipt = run_source_capability(
         store=store, config=_config(tmp_path), capability="recent_requests",

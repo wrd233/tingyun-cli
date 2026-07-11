@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrd233.github.io/tingyun-cli/schemas/investigation-manifest.schema.json",
+  "title": "Tingyun CLI Investigation Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "investigation_id",
+    "alarm_seeds",
+    "incidents",
+    "windows",
+    "candidate_bindings",
+    "trace_bindings",
+    "call_tree_bindings",
+    "source_bindings"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "investigation_id": {"type": "string", "minLength": 1},
+    "alarm_seeds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["alarm_seed_id", "occurred_at", "business_system_name", "object_name"],
+        "properties": {
+          "alarm_seed_id": {"type": "string", "minLength": 1},
+          "occurred_at": {"type": "string", "minLength": 1},
+          "business_system_name": {"type": "string", "minLength": 1},
+          "object_name": {"type": "string", "minLength": 1},
+          "application_name": {"type": "string"},
+          "object_type": {"type": "string"},
+          "metric": {"type": "string"},
+          "severity": {"type": "string"},
+          "observed_value": {},
+          "unit": {"type": "string"}
+        }
+      }
+    },
+    "incidents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["incident_id", "kind", "alarm_seed_ids"],
+        "properties": {
+          "incident_id": {"type": "string", "minLength": 1},
+          "kind": {
+            "enum": [
+              "TEMPORAL_INCIDENT",
+              "CALL_CHAIN_INCIDENT",
+              "SERVICE_FAMILY_CLUSTER",
+              "RECURRING_ALARM_CLUSTER",
+              "INSTANCE_CLUSTER",
+              "OTHER"
+            ]
+          },
+          "alarm_seed_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+        }
+      }
+    },
+    "windows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["window_id", "collect_run_id", "incident_ids", "alarm_seed_ids"],
+        "properties": {
+          "window_id": {"type": "string", "minLength": 1},
+          "collect_run_id": {"type": "string", "minLength": 1},
+          "incident_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "alarm_seed_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "expected_time_context": {"type": "object"}
+        }
+      }
+    },
+    "candidate_bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["binding_id", "alarm_seed_id", "incident_id", "window_id", "collect_run_id", "item_ref", "match_level"],
+        "properties": {
+          "binding_id": {"type": "string", "minLength": 1},
+          "alarm_seed_id": {"type": "string", "minLength": 1},
+          "incident_id": {"type": "string", "minLength": 1},
+          "window_id": {"type": "string", "minLength": 1},
+          "collect_run_id": {"type": "string", "minLength": 1},
+          "item_ref": {"type": "string", "minLength": 1},
+          "match_level": {"enum": ["EXACT", "STRONG"]},
+          "match_basis": {"type": "string"}
+        }
+      }
+    },
+    "trace_bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["incident_id", "candidate_binding_id", "trace_run_id", "target_match"],
+        "properties": {
+          "incident_id": {"type": "string", "minLength": 1},
+          "candidate_binding_id": {"type": "string", "minLength": 1},
+          "trace_run_id": {"type": "string", "minLength": 1},
+          "target_match": {"enum": ["EXACT", "STRONG"]}
+        }
+      }
+    },
+    "call_tree_bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["incident_id", "trace_run_id", "call_tree_run_id"],
+        "properties": {
+          "incident_id": {"type": "string", "minLength": 1},
+          "trace_run_id": {"type": "string", "minLength": 1},
+          "call_tree_run_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "source_bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["incident_id", "source_run_id", "role"],
+        "properties": {
+          "incident_id": {"type": "string", "minLength": 1},
+          "source_run_id": {"type": "string", "minLength": 1},
+          "role": {
+            "enum": [
+              "external_calls",
+              "recent_requests_response",
+              "recent_requests_error",
+              "recent_requests_throughput",
+              "performance_error_series",
+              "performance_throughput_series",
+              "application_instances",
+              "trace_exceptions",
+              "alarm_detail",
+              "alarm_metric_series",
+              "other"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

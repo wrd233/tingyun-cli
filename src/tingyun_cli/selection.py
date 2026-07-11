@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
-from .candidates import resolve_verified_trace_action_type
+from .candidates import candidate_semantic_kind, resolve_verified_trace_action_type
 
 
 def trace_candidates_from_rows(rows: Iterable[Mapping[str, Any]], *, scope: Mapping[str, Any], source: Mapping[str, Any], time_window: Mapping[str, Any]) -> List[Dict[str, Any]]:
@@ -29,7 +29,7 @@ def trace_candidates_from_rows(rows: Iterable[Mapping[str, Any]], *, scope: Mapp
             "time_window": dict(time_window),
             "available_actions": [],
         }
-        if _trace_action_eligible(wire_identity):
+        if _trace_action_eligible(wire_identity, row):
             item["available_actions"] = ["investigate_trace"]
         candidates.append(item)
     return candidates
@@ -86,13 +86,15 @@ def _filters(selected: Mapping[str, Any], *, trace_id: Optional[str]) -> Dict[st
 
 def _wire_identity(row: Mapping[str, Any], scope: Mapping[str, Any]) -> Dict[str, Any]:
     names = {"business_system_id": "bizSystemId", "application_id": "applicationId", "action_id": "actionId"}
-    identity = {field: row[field] for field in ("bizSystemId", "applicationId", "actionId", "requestType") if row.get(field) not in (None, "")}
+    nested = row.get("wire_identity") if isinstance(row.get("wire_identity"), Mapping) else {}
+    identity = {field: row.get(field, nested.get(field)) for field in ("bizSystemId", "applicationId", "actionId", "requestType") if row.get(field, nested.get(field)) not in (None, "")}
     for source_name, wire_name in names.items():
         if wire_name not in identity and scope.get(source_name) not in (None, ""):
             identity[wire_name] = scope[source_name]
     return identity
 
 
-def _trace_action_eligible(identity: Mapping[str, Any]) -> bool:
+def _trace_action_eligible(identity: Mapping[str, Any], row: Mapping[str, Any]) -> bool:
     required = ("bizSystemId", "applicationId", "actionId", "requestType")
-    return all(identity.get(field) not in (None, "") for field in required) and resolve_verified_trace_action_type(str(identity["requestType"])) is not None
+    semantic_kind = row.get("semantic_kind") or candidate_semantic_kind(str(row.get("name") or row.get("actionName") or ""), str(identity.get("requestType") or ""))
+    return all(identity.get(field) not in (None, "") for field in required) and resolve_verified_trace_action_type(semantic_kind, str(identity["requestType"])) is not None

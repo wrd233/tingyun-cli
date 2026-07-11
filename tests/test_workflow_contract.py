@@ -92,7 +92,7 @@ def test_collect_creates_core_evidence_run_with_request_overview_candidates(tmp_
         {"status": 200, "data": [{
             "applicationId": 1,
             "actionId": 2,
-            "actionName": "GET /slow",
+            "actionName": "SpringController/synthetic/slow",
             "applicationName": "app",
             "requestType": "WEB",
             "responseTimeMillisecondAvg": 100,
@@ -135,7 +135,7 @@ def test_investigate_trace_then_call_tree_are_separate_child_runs(tmp_path):
         {"status": 200, "data": [{
             "applicationId": 1,
             "actionId": 2,
-            "actionName": "GET /slow",
+            "actionName": "SpringController/synthetic/slow",
             "applicationName": "app",
             "requestType": "WEB",
             "responseP99": 300,

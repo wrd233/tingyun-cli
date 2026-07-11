@@ -1,0 +1,5 @@
+{
+  "candidate_binding": {"collect_run_id": "run-collect-a", "item_ref": "item-0007"},
+  "wrong_trace": {"source": {"run_id": "run-collect-a", "item_ref": "item-0001"}},
+  "correct_trace": {"source": {"run_id": "run-collect-a", "item_ref": "item-0007"}}
+}

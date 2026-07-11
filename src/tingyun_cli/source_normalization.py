@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Mapping, Tuple
 
-from .candidates import is_investigate_trace_eligible
+from .candidates import candidate_semantic_kind, is_investigate_trace_eligible
 
 
 def normalize_source(kind: str, response: Mapping[str, Any], source: Mapping[str, Any], *, run_id: str, raw_ref: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -65,7 +65,15 @@ def _recent_requests(rows, source, run_id, raw_ref):
     for index, row in enumerate(rows, 1):
         identity = {field: row[field] for field in ("applicationId", "actionId", "systemId", "requestType") if row.get(field) not in (None, "")}
         identity["bizSystemId"] = source["business_system_id"]
-        item = {"item_ref": f"request-candidate-{index:04d}", "item_type": "request_candidate", "kind": "candidate", "name": row.get("actionName") or row.get("name") or "", "source_run_id": run_id, "source_refs": [raw_ref], "labels": {"applicationName": row.get("applicationName"), "requestType": row.get("requestType")}, "scope": _recent_scope(identity), "source": {"capability": source["capability"], "ranking": source["ranking"]}, "selection_provenance": {"strategy": f"{source['ranking']}_rank", "rank": index, "candidate_count": len(rows)}, "metrics": _candidate_metrics(row), "identity": _friendly_identity(identity), "wire_identity": identity, "available_actions": []}
+        name = row.get("actionName") or row.get("name") or ""
+        semantic_kind = candidate_semantic_kind(str(name), str(row.get("requestType") or ""))
+        metrics = _candidate_metrics(row, source["ranking"])
+        ranking_metric = {"response": ("ranking_response", "response"), "error": ("ranking_error", "error"), "throughput": ("ranking_throughput", "throught")}[source["ranking"]]
+        ranking_value = metrics.get(ranking_metric[0], {}).get("value")
+        selection_provenance = {"strategy": f"{source['ranking']}_rank", "rank": index, "candidate_count": len(rows)}
+        if ranking_value is not None:
+            selection_provenance.update({"ranking_value": ranking_value, "wire_field": ranking_metric[1]})
+        item = {"item_ref": f"request-candidate-{index:04d}", "item_type": "request_candidate", "kind": "candidate", "name": name, "semantic_kind": semantic_kind, "source_run_id": run_id, "source_refs": [raw_ref], "labels": {"applicationName": row.get("applicationName"), "requestType": row.get("requestType")}, "scope": _recent_scope(identity), "source": {"capability": source["capability"], "ranking": source["ranking"]}, "selection_provenance": selection_provenance, "metrics": metrics, "identity": _friendly_identity(identity), "wire_identity": identity, "available_actions": []}
         if source["ranking"] == "response" and is_investigate_trace_eligible(item):
             item["available_actions"] = ["investigate_trace"]
         items.append(item)
@@ -86,8 +94,10 @@ def _instances(nodes, source, run_id, raw_ref):
 def _external(rows, source, run_id, raw_ref):
     items = []
     for index, row in enumerate(rows, 1):
-        dependency = row.get("host") or row.get("domain") or row.get("uri") or row.get("url") or row.get("name")
-        items.append({"item_ref": f"external-dependency-{index:04d}", "item_type": "external_dependency", "kind": "external_dependency", "name": str(dependency or ""), "dependency_uri": row.get("uri") or row.get("url"), "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "external_dependency", "business_system_id": source["business_system_id"], "application_id": source["application_id"], "dependency": dependency}, "source": {"capability": source["capability"]}, "identity": {"business_system_id": source["business_system_id"], "application_id": source["application_id"], "dependency": dependency}, "metrics": _external_metrics(row), "available_actions": []})
+        name = row.get("name") or row.get("text") or row.get("host") or row.get("domain") or row.get("value")
+        dependency_uri = row.get("uri") or row.get("url") or row.get("value")
+        dependency = name or dependency_uri
+        items.append({"item_ref": f"external-dependency-{index:04d}", "item_type": "external_dependency", "kind": "external_dependency", "name": str(name or ""), "dependency_uri": dependency_uri, "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "external_dependency", "business_system_id": source["business_system_id"], "application_id": source["application_id"], "dependency": dependency}, "source": {"capability": source["capability"]}, "identity": {"business_system_id": source["business_system_id"], "application_id": source["application_id"], "dependency": dependency}, "wire_identity": {"text": row.get("text"), "value": row.get("value")}, "metrics": _external_metrics(row), "available_actions": []})
     return items
 
 
@@ -95,7 +105,7 @@ def _exceptions(rows, source, run_id, raw_ref):
     items = []
     for index, row in enumerate(rows, 1):
         exception_class = row.get("exceptionClass") or row.get("exception_class") or row.get("class") or row.get("type")
-        items.append({"item_ref": f"trace-exception-{index:04d}", "item_type": "trace_exception", "kind": "trace_exception", "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "trace", "trace_id": source["trace_id"]}, "source": {"capability": source["capability"]}, "identity": {"business_system_id": source["business_system_id"], "application_id": source["application_id"], "trace_id": source["trace_id"], "action_guid": source["action_guid"], "exception_class": exception_class}, "message": row.get("message") or row.get("errorMessage") or row.get("msg"), "stack": row.get("stack") or [], "available_actions": []})
+        items.append({"item_ref": f"trace-exception-{index:04d}", "item_type": "trace_exception", "kind": "trace_exception", "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "trace", "trace_id": source["trace_id"]}, "source": {"capability": source["capability"]}, "identity": {"business_system_id": source["business_system_id"], "application_id": source["application_id"], "trace_id": source["trace_id"], "action_guid": source["action_guid"], "exception_class": exception_class}, "message": row.get("message") or row.get("errorMessage") or row.get("msg"), "stack": row.get("stack") or [], "signal_type": classify_exception_signal(row), "wire_signal": dict(row), "available_actions": []})
     return items
 
 
@@ -139,9 +149,30 @@ def _friendly_identity(identity):
     return {names[key]: value for key, value in identity.items() if key in names}
 
 
-def _candidate_metrics(row):
+def _candidate_metrics(row, ranking):
     mapping = {"responseTimeMillisecondAvg": ("response_avg", "ms"), "responseP95": ("p95", "ms"), "responseP99": ("p99", "ms"), "throughput": ("throughput", "per_second"), "totalCount": ("total_count", "count"), "errorRate": ("error_rate", "percent"), "errorTotalCount": ("error_count", "count")}
-    return {metric: {"value": row[field], "unit": unit} for field, (metric, unit) in mapping.items() if row.get(field) is not None}
+    metrics = {metric: {"value": row[field], "unit": unit} for field, (metric, unit) in mapping.items() if row.get(field) is not None}
+    ranking_fields = {"response": ("response", "ranking_response"), "error": ("error", "ranking_error"), "throughput": ("throught", "ranking_throughput")}
+    wire_field, metric = ranking_fields[ranking]
+    if row.get(wire_field) is not None:
+        metrics[metric] = {"value": row[wire_field], "unit": "UNKNOWN", "semantic_status": "UNKNOWN", "wire_field": wire_field}
+    return metrics
+
+
+def classify_exception_signal(row: Mapping[str, Any]) -> str:
+    stack = row.get("stack") or row.get("stackTrace") or row.get("stack_trace")
+    exception_class = row.get("exceptionClass") or row.get("exception_class") or row.get("class")
+    exception_object = row.get("exception")
+    explicit_error = row.get("error")
+    message = row.get("message") or row.get("errorMessage") or row.get("msg")
+    signal_name = str(row.get("type") or row.get("name") or row.get("eventType") or "").lower()
+    if explicit_error is False and message and not (exception_class or stack or exception_object):
+        return "ERROR_FLAG_FALSE_LOG_EVENT"
+    if exception_class or stack or exception_object or explicit_error is True:
+        return "THROWN_EXCEPTION"
+    if "logged error" in signal_name and message:
+        return "LOGGED_ERROR_EVENT"
+    return "UNKNOWN_EXCEPTION_SIGNAL"
 
 
 def _external_metrics(row):

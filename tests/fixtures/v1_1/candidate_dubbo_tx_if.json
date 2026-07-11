@@ -1,0 +1,13 @@
+{
+  "actionName": "DubboProvider/example.inventory.InventoryService/listOrders",
+  "applicationId": "app-002",
+  "applicationName": "Synthetic RPC Application",
+  "actionId": "action-002",
+  "requestType": "TX,IF",
+  "responseP50": 80,
+  "responseP95": 700,
+  "responseP99": 1000,
+  "slowCount": 5,
+  "exceptionCountTotal": 0,
+  "errorTotalCount": 0
+}

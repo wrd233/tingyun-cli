@@ -1,0 +1,13 @@
+{
+  "actionName": "SpringController/example/orders/list",
+  "applicationId": "app-001",
+  "applicationName": "Synthetic Web Application",
+  "actionId": "action-001",
+  "requestType": "TX,IF",
+  "responseP50": 100,
+  "responseP95": 900,
+  "responseP99": 1200,
+  "slowCount": 8,
+  "exceptionCountTotal": 3,
+  "errorTotalCount": 0
+}

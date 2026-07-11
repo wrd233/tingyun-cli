@@ -4,15 +4,20 @@ import argparse
 import json
 from pathlib import Path
 
+from .candidate_matching import match_candidates
 from .candidates import inspect_candidates_all, inspect_candidates_filter, inspect_candidates_top
 from .compare import compare_windows, diff_call_trees
 from .commands import export_sanitized_run, plan_collect, run_collect, run_discover, run_investigate, run_source_capability
 from .config import load_config
+from .evidence_adapter import adapt_evidence
+from .evidence_composition import CompositionError, compile_evidence
+from .evidence_validation import validate_compiled_dir
 from .narrowing import adaptive_window_narrow, locate_peak
 from .promotion import promotion_matrix
 from .selection import select_trace, trace_candidates_from_rows
 from .storage import RunStore
 from .triage import analyze_external_dependencies, classify_request_path, cluster_error_signatures
+from .trace_sample_assessment import assess_trace_sample, candidate_from_evidence
 from .workflows import workflow_plan
 
 
@@ -39,12 +44,16 @@ def main(argv=None) -> int:
     inspect = sub.add_parser("inspect", help="Local-only Candidate inspection")
     inspect_sub = inspect.add_subparsers(dest="inspect_command", required=True)
     candidates = inspect_sub.add_parser("candidates")
-    candidates.add_argument("mode", choices=["all", "top", "filter"])
+    candidates.add_argument("mode", choices=["all", "top", "filter", "match"])
     candidates.add_argument("--run-id", required=True)
     candidates.add_argument("--metric")
     candidates.add_argument("--limit", type=int, default=10)
     candidates.add_argument("--operator")
     candidates.add_argument("--value", type=float)
+    candidates.add_argument("--name")
+    candidates.add_argument("--application")
+    candidates.add_argument("--route-fragment")
+    candidates.add_argument("--request-type")
 
     export = sub.add_parser("sanitized-export", help="Local-only identity-sanitized handoff")
     export.add_argument("--run-id", required=True)
@@ -88,6 +97,16 @@ def main(argv=None) -> int:
     workflow.add_argument("--workflow", required=True, choices=["slow_transaction", "external_dependency_timeout", "instance_anomaly", "transaction_error", "alarm_to_trace"])
     workflow.add_argument("--source", type=Path, required=True)
     workflow.add_argument("--max-live-requests", type=int, default=20)
+    sample = depth_sub.add_parser("trace-sample-assess")
+    sample.add_argument("--candidate", type=Path, required=True)
+    sample.add_argument("--candidate-item-ref")
+    sample.add_argument("--trace", type=Path, required=True)
+    sample.add_argument("--alarm-metric")
+    compile_parser = depth_sub.add_parser("evidence-compile")
+    compile_parser.add_argument("--manifest", type=Path, required=True)
+    compile_parser.add_argument("--output-dir", type=Path, required=True)
+    validate_parser = depth_sub.add_parser("evidence-validate")
+    validate_parser.add_argument("--compiled-dir", type=Path, required=True)
 
     source = sub.add_parser("source", help="Advanced explicit read-only acquisition")
     source_sub = source.add_subparsers(dest="source_command", required=True)
@@ -104,10 +123,34 @@ def main(argv=None) -> int:
 
     args = parser.parse_args(argv)
     if args.command == "depth":
-        result = _run_depth_command(args)
+        data_root = None
+        if args.depth_command == "evidence-compile":
+            data_root = load_config(args.config, data_root=args.data_root).data_root
+        try:
+            result = _run_depth_command(args, data_root=data_root)
+        except CompositionError as exc:
+            result = {"schema_version": 1, "command": f"depth {args.depth_command}", "status": "BLOCKED", "reason_code": exc.code, "message": str(exc), "actual_request_count": 0}
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
     config = load_config(args.config, data_root=args.data_root)
+    if args.command == "inspect":
+        run_path = config.data_root / "runs" / args.run_id
+        try:
+            if args.mode == "all":
+                result = inspect_candidates_all(run_path)
+            elif args.mode == "top":
+                result = inspect_candidates_top(run_path, metric=args.metric, limit=args.limit)
+            elif args.mode == "filter":
+                result = inspect_candidates_filter(run_path, metric=args.metric, operator=args.operator, value=args.value)
+            else:
+                if not args.name:
+                    raise ValueError("candidate name is required")
+                artifact = _read_json(run_path / "evidence" / "candidates.json")
+                result = match_candidates(artifact, run_id=args.run_id, name=args.name, application=args.application, route_fragment=args.route_fragment, request_type=args.request_type)
+        except ValueError as exc:
+            result = {"schema_version": 1, "command": "inspect", "status": "LOCAL_ERROR", "reason_code": _inspect_reason_code(str(exc)), "message": str(exc)}
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return 0
     store = RunStore(config.data_root)
     store.freeze_stale_inflight()
     if args.command == "discover":
@@ -141,23 +184,6 @@ def main(argv=None) -> int:
             time_context_value=args.time_context,
             ranking=getattr(args, "ranking", "response"),
         )
-    elif args.command == "inspect":
-        run_path = store.run_path(args.run_id)
-        try:
-            if args.mode == "all":
-                result = inspect_candidates_all(run_path)
-            elif args.mode == "top":
-                result = inspect_candidates_top(run_path, metric=args.metric, limit=args.limit)
-            else:
-                result = inspect_candidates_filter(run_path, metric=args.metric, operator=args.operator, value=args.value)
-        except ValueError as exc:
-            result = {
-                "schema_version": 1,
-                "command": "inspect",
-                "status": "LOCAL_ERROR",
-                "reason_code": _inspect_reason_code(str(exc)),
-                "message": str(exc),
-            }
     else:
         result = export_sanitized_run(store, args.run_id, args.output)
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
@@ -193,34 +219,53 @@ def _source_capability_name(command_name: str) -> str:
     }[command_name]
 
 
-def _run_depth_command(args) -> dict:
+def _run_depth_command(args, *, data_root=None) -> dict:
     if args.depth_command == "promotion-matrix":
         return {"schema_version": 1, "command": "depth promotion-matrix", "status": "SUCCESS", "actual_request_count": 0, "capabilities": promotion_matrix()}
     if args.depth_command == "trace-candidates":
-        items = trace_candidates_from_rows(_read_json(args.input), scope=json.loads(args.scope), source=json.loads(args.source), time_window=json.loads(args.time_window))
+        rows = adapt_evidence(_read_json(args.input), "candidate_items")
+        items = trace_candidates_from_rows(rows, scope=json.loads(args.scope), source=json.loads(args.source), time_window=json.loads(args.time_window))
         return {"schema_version": 1, "command": "depth trace-candidates", "status": "SUCCESS", "actual_request_count": 0, "candidate_count": len(items), "items": items}
     if args.depth_command == "select-trace":
         selected = select_trace(_items_from_json(_read_json(args.input)), strategy=args.strategy, trace_id=args.trace_id)
         return {"schema_version": 1, "command": "depth select-trace", "status": "SUCCESS", "actual_request_count": 0, "selected": selected}
     if args.depth_command == "narrow-window":
-        result = adaptive_window_narrow(_read_json(args.input), signal=args.signal, min_window_minutes=args.min_window_minutes, max_steps=args.max_steps, request_budget=args.request_budget)
+        windows = adapt_evidence(_read_json(args.input), "performance_windows")
+        result = adaptive_window_narrow(windows, signal=args.signal, min_window_minutes=args.min_window_minutes, max_steps=args.max_steps, request_budget=args.request_budget)
         return {"schema_version": 1, "command": "depth narrow-window", "status": result["status"], "actual_request_count": 0, "result": result}
     if args.depth_command == "triage-path":
         return {"schema_version": 1, "command": "depth triage-path", "status": "SUCCESS", "actual_request_count": 0, "classification": classify_request_path(args.path)}
     if args.depth_command == "locate-peak":
-        result = locate_peak(windows=_read_json(args.input), metric_semantic_status=args.metric_semantic_status, candidates=[], request_budget=args.request_budget)
+        windows = adapt_evidence(_read_json(args.input), "performance_windows")
+        result = locate_peak(windows=windows, metric_semantic_status=args.metric_semantic_status, candidates=[], request_budget=args.request_budget)
         return {"schema_version": 1, "command": "depth locate-peak", "status": result["status"], "actual_request_count": 0, "result": result}
     if args.depth_command == "cluster-errors":
-        return {"schema_version": 1, "command": "depth cluster-errors", "status": "SUCCESS", "actual_request_count": 0, "clusters": cluster_error_signatures(_read_json(args.input))}
+        events = adapt_evidence(_read_json(args.input), "error_events")
+        return {"schema_version": 1, "command": "depth cluster-errors", "status": "SUCCESS", "actual_request_count": 0, "clusters": cluster_error_signatures(events)}
     if args.depth_command == "compare-windows":
         return {"schema_version": 1, "command": "depth compare-windows", "status": "SUCCESS", "actual_request_count": 0, "comparison": compare_windows(before=_read_json(args.before), incident=_read_json(args.incident))}
     if args.depth_command == "diff-call-trees":
-        return {"schema_version": 1, "command": "depth diff-call-trees", "status": "SUCCESS", "actual_request_count": 0, "diff": diff_call_trees(_read_json(args.baseline), _read_json(args.abnormal))}
+        baseline = adapt_evidence(_read_json(args.baseline), "call_tree")
+        abnormal = adapt_evidence(_read_json(args.abnormal), "call_tree")
+        return {"schema_version": 1, "command": "depth diff-call-trees", "status": "SUCCESS", "actual_request_count": 0, "diff": diff_call_trees(baseline, abnormal)}
     if args.depth_command == "analyze-external":
         return {"schema_version": 1, "command": "depth analyze-external", "status": "SUCCESS", "actual_request_count": 0, "analysis": analyze_external_dependencies(_read_json(args.input))}
     if args.depth_command == "workflow-plan":
         plan = workflow_plan(args.workflow, source=_read_json(args.source), max_live_requests=args.max_live_requests)
         return {"schema_version": 1, "command": "depth workflow-plan", "status": plan["status"], "actual_request_count": 0, "plan": plan}
+    if args.depth_command == "trace-sample-assess":
+        candidate = candidate_from_evidence(_read_json(args.candidate), args.candidate_item_ref)
+        assessment = assess_trace_sample(candidate, _read_json(args.trace), alarm_metric=args.alarm_metric)
+        return {"schema_version": 1, "command": "depth trace-sample-assess", "status": "SUCCESS", "actual_request_count": 0, "assessment": assessment}
+    if args.depth_command == "evidence-compile":
+        if data_root is None:
+            raise CompositionError("INVALID_INVESTIGATION_MANIFEST", "data root is required")
+        result = compile_evidence(args.manifest, data_root=data_root, output_dir=args.output_dir)
+        result["actual_request_count"] = 0
+        return result
+    if args.depth_command == "evidence-validate":
+        result = validate_compiled_dir(args.compiled_dir)
+        return {**result, "command": "depth evidence-validate", "actual_request_count": 0}
     raise ValueError(f"unsupported depth command: {args.depth_command}")
 
 

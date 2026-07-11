@@ -1,0 +1,5 @@
+{
+  "schema_version": 1, "kind": "candidates", "status": "SUCCESS", "derived_from": ["raw/response-0003.json"],
+  "time_context": {"requested": {"kind": "exact_range", "value": "2026-01-02T10:00..2026-01-02T10:30"}},
+  "data": {"items": [{"item_ref": "item-0001", "source_run_id": "run-collect-b", "kind": "candidate", "name": "SpringController/example/shared", "semantic_kind": "WEB_TRANSACTION", "labels": {"applicationName": "Synthetic App A", "requestType": "TX"}, "wire_identity": {"bizSystemId": "biz-001", "applicationId": "app-001", "actionId": "action-001", "requestType": "TX"}, "metrics": {"p50": {"value": 50, "unit": "ms"}, "p95": {"value": 100, "unit": "ms"}}, "available_actions": ["investigate_trace"], "navigation": {"status": "MISSING", "reason": "URL_NOT_VERIFIED"}, "source_refs": ["raw/response-0003.json"]}]}
+}

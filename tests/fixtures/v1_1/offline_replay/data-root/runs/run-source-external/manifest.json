@@ -1,0 +1,1 @@
+{"schema_version": 1, "run_id": "run-source-external", "run_type": "SOURCE", "overall": "SUCCESS", "source": {"run_id": "run-collect-a", "item_ref": "item-0001"}, "artifacts": [{"kind": "external_calls", "path": "evidence/external_calls.json", "status": "SUCCESS"}], "live_request_count": 1}

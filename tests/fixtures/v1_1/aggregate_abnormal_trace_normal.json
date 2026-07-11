@@ -1,0 +1,26 @@
+{
+  "candidate": {
+    "item_ref": "item-0001",
+    "source_run_id": "run-collect-a",
+    "metrics": {
+      "p50": {"value": 100, "unit": "ms"},
+      "p95": {"value": 1000, "unit": "ms"},
+      "p99": {"value": 1500, "unit": "ms"},
+      "slow_count": {"value": 12, "unit": "count"},
+      "error_count": {"value": 4, "unit": "count"},
+      "error_rate": {"value": 20, "unit": "percent"},
+      "exception_count": {"value": 7, "unit": "count", "semantic_status": "UNKNOWN"}
+    }
+  },
+  "trace": {
+    "schema_version": 1,
+    "kind": "trace",
+    "status": "SUCCESS",
+    "data": {
+      "summary": {"duration": 66},
+      "exceptions": [],
+      "items": [{"item_ref": "item-0001", "source_run_id": "run-collect-a", "summary": {"duration": 66}}]
+    }
+  },
+  "alarm_metric": "response_time"
+}

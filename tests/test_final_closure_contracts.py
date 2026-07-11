@@ -87,6 +87,8 @@ def _write_candidate_run(store, *, request_type="WEB", available_actions=None):
         "item_ref": "item-0001",
         "kind": "candidate",
         "source_run_id": run.run_id,
+        "name": "SpringController/synthetic/test",
+        "semantic_kind": "WEB_TRANSACTION" if request_type != "BG" else "BACKGROUND_TRANSACTION",
         "wire_identity": {
             "bizSystemId": "biz-1",
             "applicationId": "app-1",
@@ -129,7 +131,7 @@ def _candidate_row(request_type):
         "applicationId": "app-1",
         "applicationName": "Synthetic App",
         "actionId": "action-1",
-        "actionName": "GET /synthetic",
+        "actionName": "SpringController/synthetic/test",
         "requestType": request_type,
         "responseP99": 250,
         "errorRate": 5,
@@ -143,15 +145,16 @@ def _snapshot_tree(root):
 def test_shared_trace_resolver_uses_exact_verified_mappings_only():
     resolver = candidates.resolve_verified_trace_action_type
 
-    assert resolver("WEB") == "WEB"
-    assert resolver("TX") == "TX"
-    assert resolver("BG") == "BG"
-    assert resolver("TX,IF") == "TX"
-    assert resolver("IF,TX") is None
-    assert resolver("BG,IF") is None
-    assert resolver("TX,BG") is None
-    assert resolver("ZZ,TX") is None
-    assert resolver("") is None
+    with pytest.raises(TypeError):
+        resolver("WEB")
+    assert resolver("WEB_TRANSACTION", "WEB") == "WEB"
+    assert resolver("WEB_TRANSACTION", "TX") == "TX"
+    assert resolver("WEB_TRANSACTION", "TX,IF") == "TX"
+    assert resolver("BACKGROUND_TRANSACTION", "BG") == "BG"
+    assert resolver("DUBBO_PROVIDER_INTERFACE", "TX,IF") is None
+    assert resolver("UNKNOWN", "IF,TX") is None
+    assert resolver("UNKNOWN", "BG,IF") is None
+    assert resolver("UNKNOWN", "TX,BG") is None
 
 
 def test_candidate_trace_eligibility_and_execution_use_same_resolver(tmp_path):

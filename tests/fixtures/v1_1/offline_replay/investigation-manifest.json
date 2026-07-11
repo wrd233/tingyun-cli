@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "investigation_id": "investigation-synthetic-001",
+  "alarm_seeds": [
+    {"alarm_seed_id": "seed-001", "occurred_at": "2026-01-01T10:10:00Z", "business_system_name": "Synthetic System A", "object_name": "SpringController/example/shared", "metric": "response_time"},
+    {"alarm_seed_id": "seed-002", "occurred_at": "2026-01-01T10:12:00Z", "business_system_name": "Synthetic System A", "object_name": "Synthetic JVM"},
+    {"alarm_seed_id": "seed-003", "occurred_at": "2026-01-02T10:10:00Z", "business_system_name": "Synthetic System A", "object_name": "SpringController/example/shared", "metric": "error_rate"},
+    {"alarm_seed_id": "seed-004", "occurred_at": "2026-01-03T10:10:00Z", "business_system_name": "Synthetic System B", "object_name": "SpringController/example/other", "metric": "response_time"}
+  ],
+  "incidents": [
+    {"incident_id": "incident-001", "kind": "CALL_CHAIN_INCIDENT", "alarm_seed_ids": ["seed-001", "seed-002"]},
+    {"incident_id": "incident-002", "kind": "TEMPORAL_INCIDENT", "alarm_seed_ids": ["seed-003"]},
+    {"incident_id": "incident-003", "kind": "OTHER", "alarm_seed_ids": ["seed-004"]}
+  ],
+  "windows": [
+    {"window_id": "window-a", "collect_run_id": "run-collect-a", "incident_ids": ["incident-001"], "alarm_seed_ids": ["seed-001", "seed-002"], "expected_time_context": {"requested": {"kind": "exact_range", "value": "2026-01-01T10:00..2026-01-01T10:30"}}},
+    {"window_id": "window-b", "collect_run_id": "run-collect-b", "incident_ids": ["incident-002"], "alarm_seed_ids": ["seed-003"], "expected_time_context": {"requested": {"kind": "exact_range", "value": "2026-01-02T10:00..2026-01-02T10:30"}}},
+    {"window_id": "window-c", "collect_run_id": "run-collect-c", "incident_ids": ["incident-003"], "alarm_seed_ids": ["seed-004"], "expected_time_context": {"requested": {"kind": "exact_range", "value": "2026-01-03T10:00..2026-01-03T10:30"}}}
+  ],
+  "candidate_bindings": [
+    {"binding_id": "candidate-binding-001", "alarm_seed_id": "seed-001", "incident_id": "incident-001", "window_id": "window-a", "collect_run_id": "run-collect-a", "item_ref": "item-0001", "match_level": "EXACT", "match_basis": "full_name_exact"},
+    {"binding_id": "candidate-binding-002", "alarm_seed_id": "seed-003", "incident_id": "incident-002", "window_id": "window-b", "collect_run_id": "run-collect-b", "item_ref": "item-0001", "match_level": "EXACT", "match_basis": "full_name_exact"},
+    {"binding_id": "candidate-binding-003", "alarm_seed_id": "seed-004", "incident_id": "incident-003", "window_id": "window-c", "collect_run_id": "run-collect-c", "item_ref": "item-0001", "match_level": "EXACT", "match_basis": "full_name_exact"}
+  ],
+  "trace_bindings": [
+    {"incident_id": "incident-001", "candidate_binding_id": "candidate-binding-001", "trace_run_id": "run-trace-wrong", "target_match": "EXACT"},
+    {"incident_id": "incident-001", "candidate_binding_id": "candidate-binding-001", "trace_run_id": "run-trace-correct", "target_match": "EXACT"}
+  ],
+  "call_tree_bindings": [
+    {"incident_id": "incident-001", "trace_run_id": "run-trace-correct", "call_tree_run_id": "run-call-tree-correct"}
+  ],
+  "source_bindings": [
+    {"incident_id": "incident-001", "source_run_id": "run-source-external", "role": "external_calls"}
+  ]
+}

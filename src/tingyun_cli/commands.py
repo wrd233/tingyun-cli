@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .candidates import (
+    candidate_semantic_kind,
     is_inspect_call_tree_eligible,
     is_investigate_trace_eligible,
     normalize_candidates,
@@ -360,6 +361,9 @@ def _validate_investigate_inputs(store: RunStore, source_run_id: str, source_ite
         source = _resolve_source(store, source_run_id, source_item_ref)
     except (FileNotFoundError, KeyError) as exc:
         raise Blocked("INVALID_SOURCE_REF") from exc
+    resolution = source.get("action_resolution") if isinstance(source.get("action_resolution"), dict) else {}
+    if action == "investigate_trace" and resolution.get("reason_code") == "UNRESOLVED_TRACE_ACTION_TYPE":
+        raise Blocked("UNRESOLVED_TRACE_ACTION_TYPE")
     if action not in source.get("available_actions", []):
         raise Blocked("INVALID_ACTION")
     if action not in {"investigate_trace", "inspect_call_tree"}:
@@ -458,7 +462,11 @@ def _source_request_for_capability(
         required = ("bizSystemId", "applicationId", "actionGuid", "traceId")
         if any(identity.get(field) in (None, "") for field in required):
             raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
-        action_type = resolve_verified_trace_action_type(str(identity.get("requestType") or identity.get("actionType") or ""))
+        request_type = str(identity.get("requestType") or identity.get("actionType") or "")
+        semantic_kind = (source or {}).get("semantic_kind") or candidate_semantic_kind(str((source or {}).get("name") or ((source or {}).get("summary") or {}).get("actionName") or ""), request_type)
+        action_type = resolve_verified_trace_action_type(str(semantic_kind), request_type)
+        if action_type is None and str(identity.get("actionType") or "") in {"WEB", "TX", "BG", "IF"}:
+            action_type = str(identity["actionType"])
         if action_type is None:
             raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
         resolved = dict(identity)
@@ -664,7 +672,9 @@ def _business_tree_request(time_context: Dict[str, Any]) -> Dict[str, Any]:
 def _trace_detail_request(source: Dict[str, Any], time_context: Dict[str, Any]) -> Dict[str, Any]:
     identity = source.get("wire_identity", {})
     endpoint = time_context["endpoint"]
-    action_type = resolve_verified_trace_action_type(identity.get("requestType") or identity.get("actionType") or "")
+    request_type = str(identity.get("requestType") or identity.get("actionType") or "")
+    semantic_kind = source.get("semantic_kind") or candidate_semantic_kind(str(source.get("name") or ""), request_type)
+    action_type = resolve_verified_trace_action_type(str(semantic_kind), request_type)
     return {
         "endpoint_id": "ep_post_server_api_action_trace_detail",
         "method": "POST",
@@ -696,7 +706,7 @@ def _call_tree_request(source: Dict[str, Any], time_context: Dict[str, Any]) -> 
             "actionGuid": identity.get("actionGuid"),
             "traceId": identity.get("traceId"),
             "actionId": identity.get("actionId"),
-            "actionType": identity.get("actionType") or identity.get("requestType"),
+            "actionType": identity.get("actionType") or resolve_verified_trace_action_type(str(source.get("semantic_kind") or "UNKNOWN"), str(identity.get("requestType") or "")),
             "timePeriod": str(endpoint["timePeriod"]),
             "endTime": endpoint["endTime"],
             "lang": "zh_CN",
@@ -880,8 +890,11 @@ def _trace_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_
     for key in ("bizSystemId", "applicationId", "actionId", "actionType"):
         if data.get(key) not in (None, ""):
             identity[key] = data[key]
+    semantic_kind = source.get("semantic_kind") or candidate_semantic_kind(str(source.get("name") or ""), str(identity.get("requestType") or ""))
     if identity.get("requestType") and not identity.get("actionType"):
-        identity["actionType"] = identity["requestType"]
+        resolved_action_type = resolve_verified_trace_action_type(str(semantic_kind), str(identity["requestType"]))
+        if resolved_action_type:
+            identity["actionType"] = resolved_action_type
     if data.get("actionGuid"):
         identity["actionGuid"] = data["actionGuid"]
     trace_id = nested.get("id") or data.get("id") or data.get("traceId")
@@ -892,6 +905,8 @@ def _trace_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_
         "item_ref": "item-0001",
         "kind": "trace",
         "source_run_id": source_run_id,
+        "source_item_ref": source.get("item_ref"),
+        "semantic_kind": semantic_kind,
         "wire_identity": identity,
         "source_refs": _derived_from(result),
         "summary": summary,

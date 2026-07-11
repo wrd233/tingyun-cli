@@ -1,0 +1,22 @@
+{
+  "treeNode": [
+    {"id": "node-root", "metricType": "Web", "method": "root", "child": [
+      {"id": "node-rpc", "metricType": "Dubbo", "method": "invoke", "child": [
+        {"id": "node-db", "metricType": "Database", "method": "executeQuery", "child": [
+          {"id": "node-sql", "metricType": "Database", "method": "query", "child": []}
+        ]},
+        {"id": "node-oracle-sql", "metricType": "Database", "method": "execute", "child": []}
+      ]},
+      {"id": "node-http", "metricType": "External", "method": "getInputStream", "child": []}
+    ]}
+  ],
+  "nodeMap": {
+    "node-root": {"metricType": "Web", "metricName": "SpringController/example/root", "totalTime": 130000, "exclTime": 50},
+    "node-rpc": {"metricType": "Dubbo", "metricName": "Dubbo/example.Service/call", "totalTime": 120000, "exclTime": 100},
+    "node-db": {"metricType": "Database", "metricName": "PostgreSQL/db-001", "totalTime": 7250, "exclTime": 3},
+    "node-sql": {"metricType": "Database", "metricName": "PostgreSQL/db-001", "totalTime": 7249, "exclTime": 7249, "sql": "select synthetic_column from synthetic_table where synthetic_id = ?", "param": {"vendor": "PostgreSQL"}},
+    "node-oracle-sql": {"metricType": "Database", "metricName": "Oracle/db-002", "totalTime": 3810, "exclTime": 3810, "sql": "select synthetic_value from synthetic_lookup where synthetic_key = ?", "param": {"vendor": "Oracle"}},
+    "node-http": {"metricType": "External", "metricName": "https://public.example/slow", "totalTime": 129397, "exclTime": 129397, "param": {"protocol": "https", "operation": "/slow"}}
+  },
+  "totalTime": 130000
+}

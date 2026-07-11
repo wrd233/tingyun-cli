@@ -126,7 +126,7 @@ def _candidate_row(**overrides):
         "applicationId": "app-1",
         "applicationName": "app",
         "actionId": "action-1",
-        "actionName": "GET /slow",
+        "actionName": "SpringController/synthetic/slow",
         "requestType": "WEB",
         "responseP50": 10,
         "responseP75": 15,
@@ -584,7 +584,7 @@ def test_trace_evidence_exposes_verified_domains_without_claiming_independent_st
             "item_ref": "item-0001",
             "source_run_id": "run-source",
             "kind": "candidate",
-            "name": "GET /slow",
+            "name": "SpringController/synthetic/slow",
             "wire_identity": {
                 "bizSystemId": "biz-1",
                 "applicationId": "app-1",

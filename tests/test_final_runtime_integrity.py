@@ -283,7 +283,7 @@ def test_fake_core_golden_path_uses_execution_result_end_to_end(tmp_path):
         transport=SequenceTransport([
             {"status": 200, "data": {"nodes": [{"id": "app-1"}], "edges": []}},
             {"status": 200, "data": {"avg": [10]}},
-            {"status": 200, "data": [{"applicationId": "app-1", "actionId": "action-1", "requestType": "WEB"}]},
+            {"status": 200, "data": [{"applicationId": "app-1", "actionId": "action-1", "actionName": "SpringController/synthetic/root", "requestType": "WEB"}]},
         ]),
         clock=FakeClock(),
     )

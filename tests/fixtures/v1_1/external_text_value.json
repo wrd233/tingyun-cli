@@ -1,0 +1,10 @@
+{
+  "status": 200,
+  "data": {
+    "content": [
+      {"text": "/synthetic/dependency/path", "value": "/synthetic/dependency/path"},
+      {"name": "explicit-name", "text": "fallback-name", "uri": "https://public.example/api", "value": "/fallback"}
+    ],
+    "totalElements": 2
+  }
+}

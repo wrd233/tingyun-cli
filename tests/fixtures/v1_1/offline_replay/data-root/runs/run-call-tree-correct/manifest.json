@@ -1,0 +1,1 @@
+{"schema_version": 1, "run_id": "run-call-tree-correct", "run_type": "INVESTIGATION", "overall": "SUCCESS", "action": "inspect_call_tree", "source": {"run_id": "run-trace-correct", "item_ref": "item-0001"}, "artifacts": [{"kind": "call_tree", "path": "evidence/call_tree.json", "status": "SUCCESS"}], "live_request_count": 1}

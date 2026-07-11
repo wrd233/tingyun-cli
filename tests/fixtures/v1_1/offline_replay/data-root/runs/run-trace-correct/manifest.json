@@ -1,0 +1,1 @@
+{"schema_version": 1, "run_id": "run-trace-correct", "run_type": "INVESTIGATION", "overall": "SUCCESS", "action": "investigate_trace", "source": {"run_id": "run-collect-a", "item_ref": "item-0001"}, "artifacts": [{"kind": "trace", "path": "evidence/trace.json", "status": "SUCCESS"}], "live_request_count": 1}

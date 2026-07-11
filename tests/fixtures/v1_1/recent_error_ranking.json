@@ -1,0 +1,4 @@
+{
+  "status": 200,
+  "data": {"content": [{"actionName": "SpringController/example/error", "applicationId": "app-001", "actionId": "action-004", "requestType": "TX", "error": 17}]}
+}

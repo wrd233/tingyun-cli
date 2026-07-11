@@ -16,7 +16,7 @@ def _row(index, *, action=True):
     row = {
         "applicationId": 1600 + index,
         "applicationName": f"app-{index}",
-        "actionName": f"GET /api/{index}",
+        "actionName": f"SpringController/api/{index}",
         "requestType": "WEB",
         "responseP50": 10 + index,
         "responseP75": 20 + index,
@@ -93,8 +93,8 @@ def test_inspect_candidates_all_top_and_filter_are_local_json_views(tmp_path):
     filtered_items = inspect_candidates_filter(run_path, metric="error_rate", operator=">", value=0.02)
 
     assert [item["item_ref"] for item in all_items["items"]] == ["item-0001", "item-0002", "item-0003"]
-    assert [item["name"] for item in top_items["items"]] == ["GET /api/5", "GET /api/2"]
-    assert [item["name"] for item in filtered_items["items"]] == ["GET /api/5"]
+    assert [item["name"] for item in top_items["items"]] == ["SpringController/api/5", "SpringController/api/2"]
+    assert [item["name"] for item in filtered_items["items"]] == ["SpringController/api/5"]
     assert "p99" in ALLOWED_CANDIDATE_METRICS
 
 
@@ -148,10 +148,10 @@ def test_error_rate_percent_value_matches_wire():
 
 
 def test_investigate_trace_eligible_only_for_proven_request_types():
-    web_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "WEB"}}
-    tx_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "TX"}}
-    bg_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "BG"}}
-    composite_tx_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "TX,IF"}}
+    web_item = {"semantic_kind": "WEB_TRANSACTION", "wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "WEB"}}
+    tx_item = {"semantic_kind": "WEB_TRANSACTION", "wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "TX"}}
+    bg_item = {"semantic_kind": "BACKGROUND_TRANSACTION", "wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "BG"}}
+    composite_tx_item = {"semantic_kind": "WEB_TRANSACTION", "wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "TX,IF"}}
     unknown_composite = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "XX,YY"}}
     unknown_single = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10, "requestType": "ZZ"}}
     incomplete_item = {"wire_identity": {"bizSystemId": "b1", "applicationId": 1, "actionId": 10}}

@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "kind": "candidates",
+  "status": "SUCCESS",
+  "time_context": {"requested": {"kind": "exact_range", "value": "2026-01-01T10:00..2026-01-01T10:30"}},
+  "data": {"items": [{"item_ref": "item-0001", "source_run_id": "run-collect-a", "name": "SpringController/example/shared", "metrics": {"p95": {"value": 900, "unit": "ms"}}}]}
+}

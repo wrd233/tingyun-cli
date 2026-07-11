@@ -105,25 +105,42 @@ def inspect_candidates_filter(run_path: Path, *, metric: str, operator: str, val
     return {"schema_version": 1, "run_id": Path(run_path).name, "metric": metric, "operator": operator, "value": value, "items": items}
 
 
-_VERIFIED_TRACE_ACTION_TYPES = {
-    "WEB": "WEB",
-    "TX": "TX",
-    "BG": "BG",
-    "TX,IF": "TX",
-}
 _VERIFIED_ROUTE_REQUEST_TYPES = {"WEB", "TX"}
 
 
-def resolve_verified_trace_action_type(request_type: str) -> Optional[str]:
-    return _VERIFIED_TRACE_ACTION_TYPES.get((request_type or "").strip())
+def candidate_semantic_kind(name: str, request_type: str) -> str:
+    normalized_name = (name or "").strip()
+    normalized_request_type = (request_type or "").strip()
+    if normalized_request_type == "BG":
+        return "BACKGROUND_TRANSACTION"
+    if normalized_name.startswith("SpringController/"):
+        return "WEB_TRANSACTION"
+    if normalized_name.startswith("DubboProvider/"):
+        return "DUBBO_PROVIDER_INTERFACE"
+    return "UNKNOWN"
+
+
+def resolve_verified_trace_action_type(semantic_kind: str, request_type: str) -> Optional[str]:
+    """Resolve only semantic-kind/request-type pairs backed by evidence."""
+    key = ((semantic_kind or "").strip(), (request_type or "").strip())
+    return {
+        ("WEB_TRANSACTION", "WEB"): "WEB",
+        ("WEB_TRANSACTION", "TX"): "TX",
+        ("WEB_TRANSACTION", "TX,IF"): "TX",
+        ("BACKGROUND_TRANSACTION", "BG"): "BG",
+    }.get(key)
 
 
 def _candidate_item(index: int, row: Dict[str, Any], source_run_id: str, scope: Dict[str, Any], raw_ref: str) -> Dict[str, Any]:
+    name = row.get("actionName") or row.get("name") or ""
+    request_type = row.get("requestType") or ""
+    semantic_kind = candidate_semantic_kind(str(name), str(request_type))
     item: Dict[str, Any] = {
         "item_ref": f"item-{index:04d}",
         "source_run_id": source_run_id,
         "kind": "candidate",
-        "name": row.get("actionName") or row.get("name") or "",
+        "name": name,
+        "semantic_kind": semantic_kind,
         "labels": {
             "applicationName": row.get("applicationName"),
             "requestType": row.get("requestType"),
@@ -132,6 +149,11 @@ def _candidate_item(index: int, row: Dict[str, Any], source_run_id: str, scope: 
         "wire_identity": _wire_identity(row, scope),
         "source_refs": [raw_ref],
     }
+    action_type = resolve_verified_trace_action_type(semantic_kind, str(request_type))
+    if action_type is not None:
+        item["action_resolution"] = {"status": "RESOLVED", "action_type": action_type}
+    else:
+        item["action_resolution"] = {"status": "UNRESOLVED", "reason_code": "UNRESOLVED_TRACE_ACTION_TYPE"}
     if is_investigate_trace_eligible(item):
         item["available_actions"] = ["investigate_trace"]
     if _is_url_eligible(item):
@@ -146,7 +168,8 @@ def is_investigate_trace_eligible(item: Dict[str, Any]) -> bool:
     identity = item.get("wire_identity", {})
     if not all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId", "requestType")):
         return False
-    return resolve_verified_trace_action_type(identity.get("requestType", "")) is not None
+    semantic_kind = item.get("semantic_kind") or candidate_semantic_kind(str(item.get("name") or ""), str(identity.get("requestType") or ""))
+    return resolve_verified_trace_action_type(str(semantic_kind), str(identity.get("requestType") or "")) is not None
 
 
 def _is_url_eligible(item: Dict[str, Any]) -> bool:
@@ -154,7 +177,8 @@ def _is_url_eligible(item: Dict[str, Any]) -> bool:
     if not all(identity.get(field) not in (None, "") for field in ("bizSystemId", "applicationId", "actionId")):
         return False
     request_type = identity.get("requestType", "")
-    return request_type in _VERIFIED_ROUTE_REQUEST_TYPES
+    semantic_kind = item.get("semantic_kind") or candidate_semantic_kind(str(item.get("name") or ""), str(request_type))
+    return semantic_kind == "WEB_TRANSACTION" and request_type in _VERIFIED_ROUTE_REQUEST_TYPES
 
 
 def is_inspect_call_tree_eligible(item: Dict[str, Any]) -> bool:
@@ -176,6 +200,8 @@ def _metrics(row: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     for field, (metric, unit) in _FIELD_TO_METRIC.items():
         if field in row and row[field] is not None:
             metrics[metric] = {"value": row[field], "unit": unit}
+            if metric == "exception_count":
+                metrics[metric].update({"semantic_status": "UNKNOWN", "wire_field": field})
     return metrics
 
 
