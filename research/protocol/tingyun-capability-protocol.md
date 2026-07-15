@@ -57,7 +57,7 @@ Deterministic Evidence Composition 通过显式 Investigation Manifest 绑定 Al
 
 已观察到告警入口、Action/运行对象身份桥梁、近期请求入口、Candidate direct Trace 入口和已知 Trace 入口。当前 Core Golden Path 是 `discover -> collect(request_overview candidates) -> inspect candidates -> investigate_trace -> inspect_call_tree`。Advanced Source 可通过固定 `recent-requests --ranking response` recipe 使用 business-system-scoped `responseList`；其 `content[].actionId` 精确进入 `trace/detail.request.actionId`，detail 再提供 `actionGuid` 与 `data.id(traceId)` 给 callTree。该证明不继承到 errorList/throughtList，也不把 responseList 变成 Core 路径。Trace Detail 内嵌 exceptions/stack 与独立 `detail/exceptions` source Evidence 保持分离。
 
-2026-07-15 Capture 进一步证明了四条边界清晰的路径。第一，`$$transaction` 告警详情的 target 与 parentGroup 身份被新标签页、Action lookup 和 `actionItemList` 精确消费；这只关闭告警入口身份 Gap，普通事务页面 cold start 仍开放。第二，告警详情的 `metrics[]`、target type、完整 event items 与策略上下文被 metric/chart 请求精确消费并返回非空 series。第三，链路追踪 `trace_current_overview.content[].id` 被 detail 精确消费为 `traceId`，detail 的 actionGuid/data.id 再进入 callTree；该 list-driven 路径不证明 DubboProvider direct actionType。第四，exceptions/stackTraces 是节点级分支，精确依赖 treeId、traceId、bizSystemId、queryTimestamp 与时间上下文，并得到非空异常和堆栈。
+2026-07-15 Capture 进一步证明了四条边界清晰的路径。第一，`$$transaction` 告警详情的 target 与 parentGroup 身份被新标签页、Action lookup 和 `actionItemList` 精确消费；这只关闭告警入口身份 Gap，普通事务页面 cold start 仍开放。第二，告警详情的 `metrics[]`、target type、完整 event items 与策略上下文被 metric/chart 请求精确消费并返回非空 series。第三，链路追踪 `trace_current_overview.content[].id` 被 detail 精确消费为 `traceId`，detail 的 actionGuid/data.id 再进入 callTree；该 list-driven 路径不证明 DubboProvider direct actionType。第四，exceptions/stackTraces 是节点级分支，精确依赖 treeId、traceId、bizSystemId、queryTimestamp 与时间上下文，并得到非空异常和堆栈。v1.2 只把最后一条中的 stackTraces 以 exact node、单请求 SOURCE recipe 晋升；不晋升搜索路径、普通 Trace 输入或 fan-out。
 
 事务错误分析中，聚合 list/detail 只形成发现入口；`exceptionStatistics.content[]` 才提供被 detail 精确消费的 traceGuid 等身份。`errorExport/creatTask` 创建服务端任务，分类为 WRITE，即使随后下载表格也不进入 READ Runtime。告警详情之后触发的 `event/read` 是已读状态 WRITE，不再混入详情读取 Capability；本轮未捕获 readFlag 前后回读。所有页面 URL 本轮仅 OBSERVED，因为未完成 reload/new-tab/cross-session verify。
 
@@ -106,7 +106,7 @@ Deterministic Evidence Composition 通过显式 Investigation Manifest 绑定 Al
 | 问题溯源 | Trace Detail | VERIFIED | `get_trace_detail` | `trace_investigation` | `` |
 | 问题溯源 | Call Tree | VERIFIED | `get_trace_call_tree` | `trace_investigation` | `` |
 | 问题溯源 | Exception | VERIFIED | `list_trace_exceptions` | `trace_investigation` | `` |
-| 问题溯源 | Stack | VERIFIED | `get_trace_stack` | `trace_investigation` | `` |
+| 问题溯源 | Stack | VERIFIED | `get_trace_stack` | `trace_investigation` | `gap_stack_non_empty` |
 
 ## 单 Session 连续真实回放
 
@@ -151,7 +151,7 @@ Evidence status 使用 `CONFIRMED`、`SUPPORTED`、`UNRESOLVED`、`CONTRADICTED`
 | 近期请求到 Trace | `live_evidence_round_2_2026-07-07` | `list_recent_requests` -> `get_trace_detail` -> `get_trace_call_tree` | LIVE-VERIFIED CONNECTION | `responseList.content[].actionId` 直接进入 trace/detail，detail 输出 `actionGuid` 与 `data.id(traceId)` 进入 callTree。 |
 | 告警到事务上下文 | `2026-07-15 private Capture` | `list_alarm_events` -> `read_alarm_event_detail` -> `resolve_action_context` -> `list_transactions` | VALUE-MATCHED CONNECTION | 仅对 `$$transaction` target 精确证明 action/application/business-system 身份；actionItemList 为空且普通事务页面 cold start 仍独立开放。 |
 | Trace 搜索到详情 | `2026-07-15 private Capture` | `search_trace_candidates` -> `get_trace_detail` -> `get_trace_call_tree` | LIVE-VERIFIED CONNECTION | overview item `id` 进入 detail.traceId；该 list-driven 路径不证明 direct actionType resolver。 |
-| 异常节点到 Stack | `2026-07-15 private Capture` | `get_trace_detail` -> `list_trace_exceptions` -> `get_trace_stack` | LIVE-VERIFIED CONNECTION | exceptions 与 stackTraces 共享 exact treeId/traceId，上游 queryTimestamp 绑定同一 Trace；Runtime 只提升已存在的 exception Source，不提升 stack。 |
+| 异常节点到 Stack | `2026-07-15 private Capture` | `get_trace_detail` -> `list_trace_exceptions` -> `get_trace_stack` | LIVE-VERIFIED CONNECTION | exceptions 与 stackTraces 共享 exact treeId/traceId，上游 queryTimestamp 绑定同一 Trace；Runtime 只以 exact node、单请求 SOURCE recipe 提升 exception 与 stack，不提升普通 Trace 输入、搜索或 fan-out。 |
 | 写能力证据保存 | `04/05/06` | `manage_business_settings` / `manage_anomaly_detection_policy` / `manage_alarm_rules` | EVIDENCE PRESERVED | 写能力保留为 Endpoint Contract 与 Capability 证据；不再作为正式业务 Recipe，不参与自动执行。 |
 
 ## 导出字段语义对照

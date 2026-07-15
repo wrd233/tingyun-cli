@@ -15,6 +15,7 @@ from tingyun_cli.source_capabilities import (
     performance_timeseries_requests,
     recent_request_ranking_request,
     trace_exceptions_request,
+    trace_stack_request,
 )
 from tingyun_cli.storage import RunStore
 
@@ -80,6 +81,7 @@ def test_promotion_matrix_separates_stable_experimental_and_research_only():
 
     assert matrix["read_error_timeseries"]["runtime_status"] == "ADVANCED_READ_ONLY"
     assert matrix["list_alarm_events"]["runtime_status"] == "ADVANCED_READ_ONLY"
+    assert matrix["get_trace_stack"]["runtime_status"] == "ADVANCED_READ_ONLY"
     assert matrix["list_component_operations"]["runtime_status"] == "RESEARCH_ONLY"
     assert matrix["manage_alarm_rules"]["runtime_status"] == "REJECTED"
     assert matrix["overview.max"]["runtime_status"] == "RESEARCH_ONLY"
@@ -110,6 +112,12 @@ def test_source_request_builders_use_verified_read_endpoints_and_identity():
             "traceId": "trace-1",
             "queryTimestamp": 1000,
         }, time_context),
+        trace_stack_request({
+            "bizSystemId": "1061",
+            "treeId": "tree-1",
+            "traceId": "trace-1",
+            "queryTimestamp": 1000,
+        }, time_context),
     ]
 
     assert [request["endpoint_id"] for request in requests[:3]] == [
@@ -122,6 +130,8 @@ def test_source_request_builders_use_verified_read_endpoints_and_identity():
     assert requests[6]["path"] == "/server-api/graph/information"
     assert requests[7]["path"] == "/server-api/webaction/list/errorList"
     assert requests[9]["body"] == {"treeId": "tree-1", "traceId": "trace-1", "bizSystemId": "1061", "queryTimestamp": 1000, "timePeriod": "10", "endTime": "2026-07-08 08:50", "lang": "zh_CN"}
+    assert requests[10]["path"] == "/server-api/action/trace/detail/stackTraces"
+    assert requests[10]["body"] == requests[9]["body"]
     assert_read_endpoint(requests[0]["method"], requests[0]["path"])
     for request in requests[1:]:
         assert request["runtime_surface"] == "ADVANCED_SOURCE"

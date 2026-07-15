@@ -21,3 +21,10 @@ Completeness uses `FULL` only when an observed total is covered; otherwise `BOUN
 - Evidence Envelope adapters expose Candidate rows, performance windows, exception events, and recursive Call Trees to existing bounded primitives without editing the source artifact.
 - Compiled evidence uses Manifest binding identity, never same-name lookup. Deep spans retain node ID, parent, depth, total/exclusive time, type/name, and evidence ref.
 - Only `LIVE_OBSERVED` and `DERIVED_FROM_VERIFIED_ROUTE` links propagate as verified navigation.
+
+## v1.2 action and model contracts
+
+- `available_actions` remains the compatibility list of executable action IDs. `action_contracts` adds surface, status, explicit CLI mapping, `source_run_id + source_item_ref`, and logical request budget; `action_blockers` adds a reason code and missing identity fields.
+- Alarm details expose metric-series continuation only with complete metric identity. Their transaction target does not inherit Candidate `requestType`; the direct Trace jump remains `TRACE_CANDIDATE_REQUIRED`.
+- Exact `trace_tree_node` items expose node-scoped exception and stack actions. Ordinary Trace items never inherit these actions.
+- System Model entities and relations reuse Run/Artifact/Item/Raw refs. Stable ownership observations and windowed runtime observations are distinct; every runtime relation has a time context.

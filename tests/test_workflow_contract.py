@@ -164,6 +164,10 @@ def test_investigate_trace_then_call_tree_are_separate_child_runs(tmp_path):
     trace_run = tmp_path / "runs" / trace_receipt["run_id"]
     trace = json.loads((trace_run / "evidence" / "trace.json").read_text())
     assert trace["data"]["items"][0]["available_actions"] == ["inspect_call_tree"]
+    assert trace["data"]["items"][0]["action_contracts"][0]["input"] == {
+        "source_run_id": trace_receipt["run_id"],
+        "source_item_ref": "item-0001",
+    }
     assert trace["data"]["items"][0]["wire_identity"]["traceId"] == "trace-1"
     assert trace["data"]["items"][0]["wire_identity"]["queryTimestamp"] == 1000
     assert json.loads((trace_run / "manifest.json").read_text())["source"] == {
@@ -196,6 +200,25 @@ def test_investigate_trace_then_call_tree_are_separate_child_runs(tmp_path):
     assert call_tree["data"]["items"][1]["wire_identity"] == {"bizSystemId": "biz-1", "traceId": "trace-1", "treeId": "tree-error", "queryTimestamp": 1000}
     assert call_tree["data"]["items"][1]["source_run_id"] == call_tree_receipt["run_id"]
     assert call_tree["data"]["items"][1]["source_refs"] == ["raw/response-0001.json"]
+    assert call_tree["data"]["items"][1]["available_actions"] == ["source_trace_exceptions", "source_trace_stack"]
+    assert call_tree["data"]["items"][1]["action_contracts"] == [
+        {
+            "action": "source_trace_exceptions",
+            "surface": "ADVANCED_READ_ONLY",
+            "status": "AVAILABLE",
+            "logical_request_budget": 1,
+            "cli": {"command": "source", "capability": "trace-exceptions"},
+            "input": {"source_run_id": call_tree_receipt["run_id"], "source_item_ref": "trace-node-0002"},
+        },
+        {
+            "action": "source_trace_stack",
+            "surface": "ADVANCED_READ_ONLY",
+            "status": "AVAILABLE",
+            "logical_request_budget": 1,
+            "cli": {"command": "source", "capability": "trace-stack"},
+            "input": {"source_run_id": call_tree_receipt["run_id"], "source_item_ref": "trace-node-0002"},
+        },
+    ]
     exception_transport = FakeTransport([{"status": 200, "data": [{"type": "ExampleException", "msg": "example failure", "stack": ["example.Frame.call(Frame.java:1)"]}]}])
     exception_receipt = run_source_capability(
         store=store,

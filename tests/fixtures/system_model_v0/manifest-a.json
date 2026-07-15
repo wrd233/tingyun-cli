@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "system-model-synthetic-a",
+  "as_of": "2026-01-01T11:00:00Z",
+  "freshness_threshold_seconds": 7200,
+  "run_refs": [
+    {"run_id": "run-collect-a"},
+    {"run_id": "run-trace-correct"},
+    {"run_id": "run-call-tree-correct"},
+    {"run_id": "run-source-external"}
+  ]
+}

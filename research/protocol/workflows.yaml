@@ -88,6 +88,19 @@
       }
     ]
   },
+  "runtime_integration_2026_07_15_v1_2": {
+    "status": "Selective exact-node Stack promotion plus local Research and System Model foundations",
+    "promoted_capability": "get_trace_stack",
+    "runtime_surface": "ADVANCED_READ_ONLY",
+    "identity_rule": "source_run_id + source_item_ref must resolve to an exact trace_tree_node carrying treeId + traceId + bizSystemId + queryTimestamp",
+    "request_budget": 1,
+    "excluded_forms": ["plain Trace input", "treeId guessing", "automatic node fan-out", "generic endpoint execution"],
+    "withheld_capabilities": {
+      "search_trace_candidates": "verified protocol path lacks a safe Runtime Evidence seed and committed minimal search fixture",
+      "analyze_transaction_errors": "representative exception Trace identity exists, but generic error selection remains unresolved"
+    },
+    "local_foundations": ["deterministic Research View/Health/Diff", "Evidence-backed Living System Model v0 compile/validate/diff"]
+  },
   "capabilities": [
     {
       "id": "list_business_systems",

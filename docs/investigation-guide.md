@@ -4,7 +4,9 @@ Start with the Core Golden Path. Read Manifest and Coverage before artifacts, an
 
 Use one Advanced Source recipe only when Core Evidence identifies the exact next question. Never type naked IDs when an Evidence Item is available. Treat source list completeness as bounded unless total coverage is explicit.
 
-For an exception branch, inspect Trace Detail first, then Call Tree. Select a `trace_tree_node` item emitted by Call Tree and run `source trace-exceptions` on that exact item. The request is bound to Call Tree treeId plus Trace Detail traceId, bizSystemId, queryTimestamp, and the selected time context. A plain Trace item is intentionally insufficient, and the CLI does not traverse all nodes. Independent stackTraces remain a research-only optional branch.
+For an exception branch, inspect Trace Detail first, then Call Tree. Select a `trace_tree_node` item emitted by Call Tree and run `source trace-exceptions` and, only when the explicit node stack is needed, `source trace-stack` on that exact item. Both requests are bound to Call Tree treeId plus Trace Detail traceId, bizSystemId, queryTimestamp, and the selected time context. A plain Trace item is intentionally insufficient, and the CLI never traverses all nodes.
+
+Read `action_contracts` before execution. `CORE_LIVE` and `ADVANCED_READ_ONLY` each create one immutable Run and state their logical request budget. `LOCAL_DEPTH` means 0 HTTP/0 Run. No Action Contract is a workflow engine. When an action is withheld, `action_blockers` names the missing identity or unproven lineage.
 
 Use `depth narrow-window`, `select-trace`, `compare-windows`, `diff-call-trees`, `cluster-errors`, and `analyze-external` only on existing Evidence. Their output is local analysis, not a new fact acquisition or diagnosis.
 
@@ -17,3 +19,5 @@ For an unresolved Dubbo/interface Candidate, start from a verified parent Web tr
 The Protocol also records a verified trace-search/list path whose selected overview `id` enters Trace Detail as traceId. It is not a Runtime command and does not prove the direct Dubbo actionType resolver. Likewise, observed page URLs are not stable links until reload, new-tab, and cross-session verification succeeds.
 
 After evidence acquisition, write an explicit Investigation Manifest and run `evidence-compile`, followed by `evidence-validate`. Treat compiler `FAILED` and validator `FAIL` as evidence-integrity outcomes to repair, not as partial reports. The compiler never performs same-name joins, generates an RCA, or chooses another Live request.
+
+Use System Model only when the question crosses investigation boundaries: “what objects and runtime relations have these explicit Runs observed, when, with what freshness and coverage?” It is not a replacement for Evidence Composition. Compile/validate a snapshot, then diff two snapshots; treat every `not_observed` result as a coverage statement, never a deletion claim.

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tingyun/research-view.schema.json",
+  "title": "Tingyun Research Convergence View",
+  "type": "object",
+  "required": ["schema_version", "kind", "canonical_sources", "summary", "distributions", "endpoints", "capabilities", "workflows", "gaps", "protocol_claims", "orphans", "health"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "tingyun_research_view"},
+    "canonical_sources": {"type": "array"},
+    "summary": {"type": "object"},
+    "distributions": {"type": "object"},
+    "endpoints": {"type": "array"},
+    "capabilities": {"type": "array"},
+    "workflows": {"type": "array"},
+    "gaps": {"type": "array"},
+    "protocol_claims": {"type": "array"},
+    "orphans": {"type": "object"},
+    "health": {
+      "type": "object",
+      "required": ["status", "issues"],
+      "properties": {
+        "status": {"enum": ["PASS", "FAIL"]},
+        "issues": {"type": "array"}
+      }
+    }
+  }
+}

@@ -22,6 +22,7 @@ ADVANCED_SOURCE_READ_ENDPOINTS = {
     ("POST", "/server-api/webaction/list/throughtList"),
     ("POST", "/server-api/application/ext/uriList"),
     ("POST", "/server-api/action/trace/detail/exceptions"),
+    ("POST", "/server-api/action/trace/detail/stackTraces"),
 }
 
 

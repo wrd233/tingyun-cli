@@ -15,6 +15,7 @@ from tingyun_cli.source_capabilities import (
     performance_timeseries_requests,
     recent_request_ranking_request,
     trace_exceptions_request,
+    trace_stack_request,
 )
 from tingyun_cli.storage import RunStore
 
@@ -68,6 +69,7 @@ def test_advanced_source_safety_surface_is_exactly_the_formal_recipe_paths():
         *(recent_request_ranking_request("biz-1", time_context, ranking=ranking) for ranking in ("response", "error", "throughput")),
         external_uri_request("biz-1", "app-1", time_context),
         trace_exceptions_request(trace_identity, time_context),
+        trace_stack_request(trace_identity, time_context),
     ]
     actual = {(request["method"], request["path"]) for request in requests}
 

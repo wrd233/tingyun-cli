@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tingyun/system-model-manifest.schema.json",
+  "title": "Tingyun Evidence-backed System Model Manifest v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "snapshot_id", "as_of", "freshness_threshold_seconds", "run_refs"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "snapshot_id": {"type": "string", "minLength": 1},
+    "as_of": {"type": "string", "minLength": 1},
+    "freshness_threshold_seconds": {"type": "integer"},
+    "run_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["run_id"],
+        "properties": {
+          "run_id": {"type": "string", "minLength": 1},
+          "expected_manifest_sha256": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

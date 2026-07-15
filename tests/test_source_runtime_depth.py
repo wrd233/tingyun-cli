@@ -380,6 +380,88 @@ def test_source_capability_trace_exceptions_normalizes_exception_items(tmp_path)
     assert item["source_run_id"] == receipt["run_id"]
 
 
+def test_source_capability_trace_stack_is_exact_node_scoped_and_bounded(tmp_path):
+    store = RunStore(tmp_path)
+    source_run_id = _write_item_run(store, {
+        "item_ref": "trace-node-0002",
+        "kind": "trace_tree_node",
+        "wire_identity": {
+            "bizSystemId": "1061",
+            "treeId": "tree-error-1",
+            "traceId": "trace-129s",
+            "queryTimestamp": 1000,
+        },
+    })
+    transport = FakeTransport([_fixture("trace_stack.json")])
+
+    receipt = run_source_capability(
+        store=store,
+        config=_config(tmp_path),
+        capability="trace_stack",
+        source_run_id=source_run_id,
+        source_item_ref="trace-node-0002",
+        time_context_value="last_30m",
+        transport=transport,
+        clock=FakeClock(),
+    )
+
+    run_path = tmp_path / "runs" / receipt["run_id"]
+    artifact = json.loads((run_path / "evidence" / "trace_stack.json").read_text())
+    item = artifact["data"]["items"][0]
+
+    assert receipt["status"] == "SUCCESS"
+    assert len(transport.requests) == 1
+    assert transport.requests[0]["path"] == "/server-api/action/trace/detail/stackTraces"
+    assert transport.requests[0]["body"]["treeId"] == "tree-error-1"
+    assert transport.requests[0]["body"]["traceId"] == "trace-129s"
+    assert transport.requests[0]["body"]["queryTimestamp"] == 1000
+    assert item["item_type"] == "trace_stack"
+    assert item["scope"] == {"type": "trace_node", "trace_id": "trace-129s", "tree_id": "tree-error-1"}
+    assert item["frames"] == ["example.Service.call(Service.java:1)", "example.Controller.run(Controller.java:2)"]
+    assert artifact["execution"]["attempt_count"] == 1
+
+
+def test_trace_stack_requires_exact_node_identity_before_http(tmp_path):
+    store = RunStore(tmp_path)
+    source_run_id = _write_item_run(store, {
+        "item_ref": "trace-1",
+        "kind": "trace",
+        "wire_identity": {"bizSystemId": "biz-1", "traceId": "trace-1", "treeId": "tree-1", "queryTimestamp": 1000},
+    })
+    transport = FakeTransport([])
+
+    receipt = run_source_capability(
+        store=store, config=_config(tmp_path), capability="trace_stack",
+        source_run_id=source_run_id, source_item_ref="trace-1",
+        time_context_value="last_30m", transport=transport, clock=FakeClock(),
+    )
+
+    assert receipt["status"] == "BLOCKED"
+    assert receipt["reason_code"] == "SOURCE_IDENTITY_INCOMPLETE"
+    assert transport.requests == []
+
+
+def test_trace_stack_protocol_shape_mismatch_is_failed_not_empty(tmp_path):
+    store = RunStore(tmp_path)
+    source_run_id = _write_item_run(store, {
+        "item_ref": "trace-node-0002",
+        "kind": "trace_tree_node",
+        "wire_identity": {"bizSystemId": "1061", "treeId": "tree-error-1", "traceId": "trace-129s", "queryTimestamp": 1000},
+    })
+
+    receipt = run_source_capability(
+        store=store, config=_config(tmp_path), capability="trace_stack",
+        source_run_id=source_run_id, source_item_ref="trace-node-0002", time_context_value="last_30m",
+        transport=FakeTransport([{"status": 200, "data": {"frames": ["unexpected"]}}]), clock=FakeClock(),
+    )
+
+    artifact = json.loads((tmp_path / "runs" / receipt["run_id"] / "evidence" / "trace_stack.json").read_text())
+    assert receipt["status"] == "PARTIAL"
+    assert artifact["status"] == "FAILED"
+    assert artifact["error"]["reason_code"] == "PROTOCOL_SHAPE_MISMATCH"
+    assert artifact["data"]["items"] == []
+
+
 def test_trace_exceptions_requires_exact_node_identity_before_http(tmp_path):
     store = RunStore(tmp_path)
     source_run_id = _write_item_run(store, {"item_ref": "trace-1", "kind": "trace", "wire_identity": {"bizSystemId": "biz-1", "traceId": "trace-1", "treeId": "tree-1", "queryTimestamp": 1000}})

@@ -24,7 +24,9 @@ from .source_capabilities import (
     performance_timeseries_requests,
     recent_request_ranking_request,
     trace_exceptions_request,
+    trace_stack_request,
 )
+from .action_contracts import apply_action_contracts
 from .source_normalization import normalize_source
 from .storage import RunStore
 from .time_context import resolve_time_context
@@ -203,7 +205,7 @@ def run_investigate(
         if action == "investigate_trace":
             result = executor.execute(_trace_detail_request(source, time_context))
             artifact_name = "trace.json"
-            artifact = _trace_artifact(result, source, source_run_id, time_context)
+            artifact = _trace_artifact(result, source, source_run_id, run.run_id, time_context)
         else:
             result = executor.execute(_call_tree_request(source, time_context))
             artifact_name = "call_tree.json"
@@ -393,6 +395,7 @@ def _validate_source_inputs(
         "application_instances",
         "external_calls",
         "trace_exceptions",
+        "trace_stack",
     }:
         raise Blocked("CAPABILITY_NOT_EXPOSED")
     try:
@@ -458,13 +461,16 @@ def _source_request_for_capability(
         if capability == "application_instances":
             return application_instances_request(str(biz_id), str(app_id), time_context), "instance_context.json", "instance_context", metadata
         return external_uri_request(str(biz_id), str(app_id), time_context), "external_calls.json", "external_calls", metadata
-    if capability == "trace_exceptions":
+    if capability in {"trace_exceptions", "trace_stack"}:
         if (source or {}).get("kind") != "trace_tree_node":
             raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
         required = ("bizSystemId", "treeId", "traceId", "queryTimestamp")
         if any(identity.get(field) in (None, "") for field in required):
             raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
-        return trace_exceptions_request(identity, time_context), "trace_exceptions.json", "trace_exceptions", {"capability": "list_trace_exceptions", "business_system_id": str(identity["bizSystemId"]), "tree_id": str(identity["treeId"]), "trace_id": str(identity["traceId"]), "query_timestamp": identity["queryTimestamp"], **parent}
+        metadata = {"capability": "list_trace_exceptions" if capability == "trace_exceptions" else "get_trace_stack", "business_system_id": str(identity["bizSystemId"]), "tree_id": str(identity["treeId"]), "trace_id": str(identity["traceId"]), "query_timestamp": identity["queryTimestamp"], **parent}
+        if capability == "trace_exceptions":
+            return trace_exceptions_request(identity, time_context), "trace_exceptions.json", "trace_exceptions", metadata
+        return trace_stack_request(identity, time_context), "trace_stack.json", "trace_stack", metadata
     raise ValueError("CAPABILITY_NOT_EXPOSED")
 
 
@@ -482,18 +488,22 @@ def _source_artifact(
         return artifact
     raw_ref = _final_ref(result)
     items, extra = normalize_source(kind, result.response or {}, source_metadata, run_id=run_id, raw_ref=raw_ref)
+    protocol_mismatch = extra.pop("protocol_mismatch", None)
     data = {"items": items, "raw_shape": _source_shape(result.response or {})}
     data.update(extra)
-    return {
+    artifact = {
         "schema_version": 1,
         "kind": kind,
-        "status": "SUCCESS" if items else "EMPTY",
+        "status": "FAILED" if protocol_mismatch else "SUCCESS" if items else "EMPTY",
         "time_context": time_context,
         "source": source_metadata,
         "derived_from": _derived_from(result),
         "execution": _execution_metadata(result),
         "data": data,
     }
+    if protocol_mismatch:
+        artifact["error"] = protocol_mismatch
+    return artifact
 
 
 def _source_shape(response: Dict[str, Any]) -> Dict[str, Any]:
@@ -874,7 +884,7 @@ def _candidates_artifact(result: ExecutionResult, source_run_id: str, scope: Dic
     return artifact
 
 
-def _trace_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_id: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
+def _trace_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_id: str, current_run_id: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
     if result.outcome == "FAILED":
         return _failed_artifact("trace", None, time_context, result, data={"items": []})
     response = result.response or {}
@@ -907,8 +917,7 @@ def _trace_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_
         "source_refs": _derived_from(result),
         "summary": summary,
     }
-    if is_inspect_call_tree_eligible(item):
-        item["available_actions"] = ["inspect_call_tree"]
+    apply_action_contracts(item, source_run_id=current_run_id)
     return {
         "schema_version": 1,
         "kind": "trace",
@@ -954,7 +963,7 @@ def _trace_node_items(tree_nodes, *, identity, query_timestamp, source, source_r
         tree_id = node.get("id") or node.get("treeId")
         if tree_id in (None, ""):
             continue
-        items.append({
+        items.append(apply_action_contracts({
             "item_ref": f"trace-node-{len(items) + 1:04d}",
             "item_type": "trace_tree_node",
             "kind": "trace_tree_node",
@@ -965,8 +974,7 @@ def _trace_node_items(tree_nodes, *, identity, query_timestamp, source, source_r
             "scope": {"type": "trace_node", "trace_id": trace_id, "tree_id": tree_id},
             "wire_identity": {"bizSystemId": business_system_id, "traceId": trace_id, "treeId": tree_id, "queryTimestamp": query_timestamp},
             "source_refs": source_refs,
-            "available_actions": [],
-        })
+        }, source_run_id=source_run_id))
     return items
 
 
@@ -1183,6 +1191,7 @@ def _capability_for_kind(kind: str) -> str:
         "instance_context": "read_application_overview",
         "external_calls": "list_external_calls",
         "trace_exceptions": "list_trace_exceptions",
+        "trace_stack": "get_trace_stack",
     }.get(kind, kind)
 
 

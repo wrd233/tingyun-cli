@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tingyun/research-diff.schema.json",
+  "title": "Tingyun Research Convergence Diff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "status", "endpoints", "capability_maturity_changes", "gap_status_changes"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "tingyun_research_diff"},
+    "status": {"const": "SUCCESS"},
+    "endpoints": {
+      "type": "object",
+      "required": ["added", "removed", "modified"],
+      "properties": {
+        "added": {"type": "array"},
+        "removed": {"type": "array"},
+        "modified": {"type": "array"}
+      }
+    },
+    "capability_maturity_changes": {"type": "array"},
+    "gap_status_changes": {"type": "array"}
+  }
+}

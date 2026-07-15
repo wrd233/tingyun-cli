@@ -221,6 +221,7 @@ SOURCE_CASES = [
     ("application_instances", "response", {"bizSystemId": "biz-1", "applicationId": "app-1"}, {"status": 200, "data": {"nodes": [{"type": "INSTANCE", "instanceId": "instance-1"}]}}, "instance_context.json"),
     ("external_calls", "response", {"bizSystemId": "biz-1", "applicationId": "app-1"}, {"status": 200, "data": {"content": [{"host": "upstream.example", "callCount": 1}]}}, "external_calls.json"),
     ("trace_exceptions", "response", {"bizSystemId": "biz-1", "treeId": "tree-1", "traceId": "trace-1", "queryTimestamp": 1000}, {"status": 200, "data": [{"type": "ExampleError", "msg": "failed", "stack": ["example.Frame.call(Frame.java:1)"]}]}, "trace_exceptions.json"),
+    ("trace_stack", "response", {"bizSystemId": "biz-1", "treeId": "tree-1", "traceId": "trace-1", "queryTimestamp": 1000}, {"status": 200, "data": ["example.Frame.call(Frame.java:1)"]}, "trace_stack.json"),
 ]
 
 
@@ -234,7 +235,7 @@ def test_all_advanced_source_recipes_execute_through_runtime(capability, ranking
         source_item_ref = "item-0001"
         source_run_id = _write_item_run(store, {
             "item_ref": source_item_ref,
-            "kind": "trace_tree_node" if capability == "trace_exceptions" else "fixture",
+            "kind": "trace_tree_node" if capability in {"trace_exceptions", "trace_stack"} else "fixture",
             "wire_identity": wire_identity,
         })
     transport = SequenceTransport([response])

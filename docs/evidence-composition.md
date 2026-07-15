@@ -89,3 +89,9 @@ Core output contains no current timestamp, random ID, or temporary path. JSON
 keys and registries are stably ordered. Files are written to a sibling staging
 directory and atomically renamed only after all outputs and hashes exist.
 Repeated compilation of identical inputs must be byte-identical.
+
+## Boundary with System Model
+
+Evidence Composition is investigation-scoped: its interface is the formal Investigation Manifest and its primary organization is Alarm/Incident/Window/evidence lineage plus readiness. System Model is system-scoped: its interface is an explicit list of immutable Run refs and its primary organization is observed entities, stable ownership observations, windowed runtime relations, freshness, coverage and diff.
+
+System Model reuses the existing Run/Artifact/Item/Raw evidence reference shape, schema validator and Call Tree extractor. It does not copy the Evidence Compiler, does not consume report readiness, and does not convert a model snapshot into an Incident, RCA or report.

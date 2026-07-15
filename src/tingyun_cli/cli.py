@@ -18,6 +18,7 @@ from .selection import select_trace, trace_candidates_from_rows
 from .storage import RunStore
 from .triage import analyze_external_dependencies, classify_request_path, cluster_error_signatures
 from .trace_sample_assessment import assess_trace_sample, candidate_from_evidence
+from .system_model import SystemModelError, compile_system_model, diff_system_models, validate_system_model
 from .workflows import workflow_plan
 
 
@@ -107,12 +108,20 @@ def main(argv=None) -> int:
     compile_parser.add_argument("--output-dir", type=Path, required=True)
     validate_parser = depth_sub.add_parser("evidence-validate")
     validate_parser.add_argument("--compiled-dir", type=Path, required=True)
+    model_compile = depth_sub.add_parser("system-model-compile")
+    model_compile.add_argument("--manifest", type=Path, required=True)
+    model_compile.add_argument("--output-dir", type=Path, required=True)
+    model_validate = depth_sub.add_parser("system-model-validate")
+    model_validate.add_argument("--compiled-dir", type=Path, required=True)
+    model_diff = depth_sub.add_parser("system-model-diff")
+    model_diff.add_argument("--before", type=Path, required=True)
+    model_diff.add_argument("--after", type=Path, required=True)
 
     source = sub.add_parser("source", help="Advanced explicit read-only acquisition")
     source_sub = source.add_subparsers(dest="source_command", required=True)
     alarm_events = source_sub.add_parser("alarm-events")
     alarm_events.add_argument("--time-context", required=True)
-    for name in ("performance-error-series", "performance-throughput-series", "alarm-detail", "alarm-metric-series", "application-instances", "external-calls", "trace-exceptions"):
+    for name in ("performance-error-series", "performance-throughput-series", "alarm-detail", "alarm-metric-series", "application-instances", "external-calls", "trace-exceptions", "trace-stack"):
         source_parser = source_sub.add_parser(name)
         _add_source_identity_args(source_parser)
         source_parser.add_argument("--time-context", required=True)
@@ -124,11 +133,11 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.command == "depth":
         data_root = None
-        if args.depth_command == "evidence-compile":
+        if args.depth_command in {"evidence-compile", "system-model-compile"}:
             data_root = load_config(args.config, data_root=args.data_root).data_root
         try:
             result = _run_depth_command(args, data_root=data_root)
-        except CompositionError as exc:
+        except (CompositionError, SystemModelError) as exc:
             result = {"schema_version": 1, "command": f"depth {args.depth_command}", "status": "BLOCKED", "reason_code": exc.code, "message": str(exc), "actual_request_count": 0}
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
@@ -216,6 +225,7 @@ def _source_capability_name(command_name: str) -> str:
         "application-instances": "application_instances",
         "external-calls": "external_calls",
         "trace-exceptions": "trace_exceptions",
+        "trace-stack": "trace_stack",
     }[command_name]
 
 
@@ -266,6 +276,14 @@ def _run_depth_command(args, *, data_root=None) -> dict:
     if args.depth_command == "evidence-validate":
         result = validate_compiled_dir(args.compiled_dir)
         return {**result, "command": "depth evidence-validate", "actual_request_count": 0}
+    if args.depth_command == "system-model-compile":
+        if data_root is None:
+            raise SystemModelError("INVALID_SYSTEM_MODEL_MANIFEST", "data root is required")
+        return compile_system_model(args.manifest, data_root=data_root, output_dir=args.output_dir)
+    if args.depth_command == "system-model-validate":
+        return {**validate_system_model(args.compiled_dir), "command": "depth system-model-validate", "actual_request_count": 0}
+    if args.depth_command == "system-model-diff":
+        return {**diff_system_models(args.before, args.after), "command": "depth system-model-diff", "actual_request_count": 0}
     raise ValueError(f"unsupported depth command: {args.depth_command}")
 
 

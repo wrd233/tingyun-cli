@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "system-model-synthetic-b",
+  "as_of": "2026-01-03T11:00:00Z",
+  "freshness_threshold_seconds": 7200,
+  "run_refs": [
+    {"run_id": "run-collect-c"}
+  ]
+}

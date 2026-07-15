@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tingyun/system-model-diff.schema.json",
+  "title": "Tingyun System Model Diff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "status", "actual_request_count", "before_snapshot_id", "after_snapshot_id", "entities", "relations", "coverage_change", "new_conflicts"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "system_model_diff"},
+    "status": {"const": "SUCCESS"},
+    "actual_request_count": {"const": 0},
+    "before_snapshot_id": {"type": "string", "minLength": 1},
+    "after_snapshot_id": {"type": "string", "minLength": 1},
+    "entities": {"type": "object"},
+    "relations": {"type": "object"},
+    "coverage_change": {"type": "object"},
+    "new_conflicts": {"type": "array"}
+  }
+}

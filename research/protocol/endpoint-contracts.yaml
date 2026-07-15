@@ -241,6 +241,16 @@
       "trace_detail_urls": "OBSERVED only; no stable report-link claim"
     }
   },
+  "runtime_integration_2026_07_15_v1_2": {
+    "status": "Exact selected-node stackTraces promoted to Advanced Source",
+    "evidence_basis": "2026-07-15 non-empty stackTraces plus existing exact trace_tree_node runtime identity",
+    "promoted_endpoint": "ep_post_server_api_action_trace_detail_stacktraces",
+    "runtime_path": "/server-api/action/trace/detail/stackTraces",
+    "access": "READ",
+    "request_contract": "treeId + traceId + bizSystemId + queryTimestamp + explicit time context + lang",
+    "execution_contract": "one immutable SOURCE Run, one logical request, Raw-before-Normalized",
+    "excluded_forms": ["plain Trace input", "guessed node", "automatic tree traversal", "fan-out"]
+  },
   "coverage": {
     "sessions_processed": "8/8",
     "session_files_inspected": "5246/5246",

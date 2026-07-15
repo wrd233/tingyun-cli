@@ -61,6 +61,8 @@ tingyun investigate --source-run-id run-... --source-item-ref item-0001 --action
 
 Action 必须 exact 出现在 Source Item 的 `available_actions` 中。
 
+`action_contracts` 是同一可执行面的 machine-readable 扩展，声明 surface、精确输入和逻辑请求预算；`action_blockers` 解释 withheld Action。它们不改变旧 `available_actions` 的执行校验，也不会自动执行 Action。
+
 CLI 还会在发起 HTTP 前重新校验该 Action 的必要 wire identity：
 
 - `investigate_trace`：`bizSystemId`、`applicationId`、`actionId`、`requestType`
@@ -86,11 +88,13 @@ tingyun inspect candidates filter --run-id run-... --metric error_rate --operato
 
 `source` 子命令见 README。除 `alarm-events` 外都要求 `source_run_id + source_item_ref`；身份、时间、capability、auth 全部在 Live Lock 前校验。每次 recipe 的 `expected_logical_request_count = 1`，Manifest `live_request_count` 记录 retry/auth replay 后的实际 attempts。
 
-SOURCE Run 使用现有目录布局和状态语义。response ranking 可在完整、精确、已验证 identity 下暴露 `investigate_trace`；error/throughput ranking 不继承 responseList 的 Trace lineage。
+SOURCE Run 使用现有目录布局和状态语义。response ranking 可在完整、精确、已验证 identity 下暴露 `investigate_trace`；error/throughput ranking 不继承 responseList 的 Trace lineage。`trace-exceptions` 与 `trace-stack` 只接受 exact `trace_tree_node`，各执行一个逻辑请求；普通 Trace 和自动 fan-out 都会在 HTTP 前阻塞。
 
 ## Local Depth and Workflow Plans
 
 `depth` 命令只读输入 JSON并输出确定性 JSON。它们不创建 data root、Run 或 index，不访问 token/HTTP。`workflow-plan` 只描述 integrated capability、availability、request cost、budget 和 blocker；`RESEARCH_ONLY` step 的 request cost 固定为 0，且不会假装可执行。
+
+`system-model-compile/validate/diff` 也属于 Local Depth。Compile 只读取显式 Run refs 和其声明 Artifact，输出独立快照目录；Validate/Diff 不加载 transport。System Model diff 的缺失语义固定为 `NOT_OBSERVED_IN_AFTER_INPUTS`。
 
 ## Plan-only
 

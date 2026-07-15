@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tingyun/system-model-validation.schema.json",
+  "title": "Tingyun System Model Validation Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "status", "snapshot_sha256", "issues"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "system_model_validation"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "snapshot_sha256": {"type": "string", "minLength": 1},
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "context"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1},
+          "severity": {"enum": ["ERROR", "WARNING"]},
+          "context": {"type": "object"}
+        }
+      }
+    }
+  }
+}

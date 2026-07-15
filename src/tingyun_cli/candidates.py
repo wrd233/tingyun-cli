@@ -132,6 +132,8 @@ def resolve_verified_trace_action_type(semantic_kind: str, request_type: str) ->
 
 
 def _candidate_item(index: int, row: Dict[str, Any], source_run_id: str, scope: Dict[str, Any], raw_ref: str) -> Dict[str, Any]:
+    from .action_contracts import apply_action_contracts
+
     name = row.get("actionName") or row.get("name") or ""
     request_type = row.get("requestType") or ""
     semantic_kind = candidate_semantic_kind(str(name), str(request_type))
@@ -154,8 +156,7 @@ def _candidate_item(index: int, row: Dict[str, Any], source_run_id: str, scope: 
         item["action_resolution"] = {"status": "RESOLVED", "action_type": action_type}
     else:
         item["action_resolution"] = {"status": "UNRESOLVED", "reason_code": "UNRESOLVED_TRACE_ACTION_TYPE"}
-    if is_investigate_trace_eligible(item):
-        item["available_actions"] = ["investigate_trace"]
+    apply_action_contracts(item)
     if _is_url_eligible(item):
         item["links"] = [_candidate_detail_link(item["wire_identity"])]
         item["navigation"] = {"status": "SUCCESS", "verification": "DERIVED_FROM_VERIFIED_ROUTE"}

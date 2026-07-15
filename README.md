@@ -1,8 +1,10 @@
-# Tingyun CLI v1.1
+# Tingyun CLI v1.2
 
 听云 APM 调查 CLI v1 是一个面向 Agent 的只读事实获取工具。它的核心资产不是终端表格或诊断报告，而是每次真实访问后留下的不可变 Run、Raw Wire Evidence、Normalized Evidence、Coverage 和调查血缘。
 
-当前状态：`Core Golden Path Live-Validated + Integrated Investigation Depth`。Live-validated 只限定已测试的 Core 目标、时间窗口和 runtime version；新 Advanced Source Capabilities 依据既有协议证据分级，不声明全部 Live-Proven。
+当前状态：`Core Golden Path Live-Validated + Research Convergence + Evidence-backed Living System Model v0`。Live-validated 只限定已测试的 Core 目标、时间窗口和 runtime version；Advanced Source 逐项依据协议证据晋升，不声明全部 Live-Proven。
+
+Agent 首先读 `AGENT.md`。协议能力、验证等级、Runtime promotion、Workflow 和 Gap 的轻量入口是 `research/generated/research-index.json`；它由四个 canonical protocol 文件确定性生成，不是第二份手工总账。
 
 ## 五层入口
 
@@ -10,7 +12,7 @@
 - **Advanced Read-only Source Surface**：`source ...`；一次一个固定 READ recipe，创建 SOURCE Run。
 - **Local Investigation Depth**：`depth ...`；完全本地，0 HTTP、0 Run。
 - **Workflow Plans**：`depth workflow-plan ...`；只生成确定性计划，不自动执行任何服务端请求。
-- **Deterministic Evidence Composition**：`depth evidence-compile/evidence-validate`；把显式 Manifest 和不可变 Runs 编译为可验证 Evidence Map，0 HTTP、0 Run。
+- **Deterministic Evidence Composition / System Model**：`depth evidence-compile/evidence-validate` 面向调查级 Evidence Map；`depth system-model-compile/system-model-validate/system-model-diff` 面向系统级认知快照。全部 0 HTTP、0 Run。
 
 ## 是什么
 
@@ -18,7 +20,7 @@
 - Evidence Package-first：`collect` 生成固定核心证据包。
 - Immutable Run：`discover` / `collect` / `investigate` 每次都创建新 Run。
 - Advanced Source：显式 `source` 命令一次执行一个有界只读 recipe，并创建不可变 `SOURCE` Run。
-- Local Investigation：`depth` 原语和 workflow plan 只处理本地 JSON，0 HTTP、0 Run。
+- Local Investigation：`depth` 原语、workflow plan、Evidence Composition 和 System Model 只处理本地 JSON / immutable Runs，0 HTTP、0 Run。
 - Read-only：Runtime 只允许已进入 Stable Surface 的读路径。
 - Branch-aware：Evidence Item 只在身份完整且 Action 已验证时暴露 `available_actions`。
 - Runtime-contract-hardened：失败步骤会形成 `FAILED` Artifact；成功空数据才是 `EMPTY`；`derived_from` 指向最终支撑 Raw 记录。
@@ -89,9 +91,12 @@ tingyun source recent-requests --source-run-id run-... --source-item-ref item-00
 tingyun source application-instances --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
 tingyun source external-calls --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
 tingyun source trace-exceptions --source-run-id run-... --source-item-ref trace-node-0001 --time-context last_30m
+tingyun source trace-stack --source-run-id run-... --source-item-ref trace-node-0001 --time-context last_30m
 ```
 
-除固定 page 1 / size 20 的 `alarm-events` 外，入口必须来自 `source_run_id + source_item_ref`。告警详情会保留数组型 parentGroup，并为每个 `metrics[]` 生成独立、可选的 metric identity；只有 `$$transaction` target 会保留 Capture 已证明的 actionId 关系。`trace-exceptions` 只接受 Call Tree 产出的 exact `trace_tree_node` item，其身份由 Trace Detail 的 traceId/bizSystemId/queryTimestamp 与 Call Tree 的 treeId 组合；不会从普通 Trace item 猜节点或自动 fan-out。只有 response ranking 的既有精确血缘且通过 main actionType resolver 时才会暴露 `investigate_trace`；error/throughput ranking 不继承该证明。
+除固定 page 1 / size 20 的 `alarm-events` 外，入口必须来自 `source_run_id + source_item_ref`。告警详情会保留数组型 parentGroup，并为每个 `metrics[]` 生成独立、可选的 metric identity；只有 `$$transaction` target 会保留 Capture 已证明的 actionId 关系。`trace-exceptions` 与 `trace-stack` 都只接受 Call Tree 产出的 exact `trace_tree_node` item，其身份由 Trace Detail 的 traceId/bizSystemId/queryTimestamp 与 Call Tree 的 treeId 组合；每次只读取一个显式节点，不从普通 Trace item 猜节点、不遍历树。Stack 的成功响应必须严格为 `data: array[string]`；HTTP 成功但结构漂移会生成带 `PROTOCOL_SHAPE_MISMATCH` 的 `FAILED` Artifact，而不是伪装成 `EMPTY`。只有 response ranking 的既有精确血缘且通过 main actionType resolver 时才会暴露 `investigate_trace`；error/throughput ranking 不继承该证明。
+
+每个成熟 Evidence Item 继续保留兼容的 `available_actions` 字符串列表，并新增 `action_contracts` 与 `action_blockers`：前者声明 Live/Advanced surface、精确输入和单次逻辑请求预算，后者声明缺失身份或未证明边界。`can` 仍不表示推荐或自动执行。
 
 ## Local Investigation Depth
 
@@ -116,6 +121,26 @@ tingyun depth evidence-validate --compiled-dir compiled
 编译器验证 Window、`source_run_id + item_ref`、canonical Incident、Trace target、Call Tree 和 Source role 血缘，输出 source of truth、Evidence Map、四层 coverage、validation、report readiness 和深层提取。相同 Manifest + Runs 必须产生 byte-stable 输出。它只编译证据并评估 readiness，不生成 Word/Markdown 报告、RCA 或下一步 Live 请求。
 
 Manifest 与输出合同见 `docs/investigation-manifest.md`、`docs/evidence-composition.md` 和 `docs/report-readiness-contract.md`。
+
+## Research Convergence
+
+```bash
+PYTHONPATH=src python3 research/tools/research_views.py generate
+PYTHONPATH=src python3 research/tools/research_views.py check
+PYTHONPATH=src python3 research/tools/research_views.py diff --before old/research-index.json --after research/generated/research-index.json
+```
+
+`research/generated/research-index.json` 汇总 Endpoint/Variant/Capability/Workflow/Gap/Runtime 的可追踪关系、分布、孤立合同、source hashes 和 health；`research-overview.md` 是人工导航。维护边界见 `docs/research-maintenance.md`。
+
+## Evidence-backed Living System Model v0
+
+```bash
+tingyun --data-root .tingyun-runs depth system-model-compile --manifest system-model-manifest.json --output-dir model-a
+tingyun depth system-model-validate --compiled-dir model-a
+tingyun depth system-model-diff --before model-a/snapshot.json --after model-b/snapshot.json
+```
+
+System Model 由显式 immutable Run refs 编译，复用 Run/Artifact/Evidence ref、Call Tree 提取与 schema validation。它只表达已观察结构、windowed runtime relations、freshness、coverage、conflict 和 diff；不补造实体、不把未观察到解释为删除，也不生成 RCA 或报告。完整合同见 `docs/system-model.md`。
 
 ## Run 位置
 
@@ -164,3 +189,6 @@ CLI 启动会先扫描 `.inflight/`，只冻结确认 stale 的 Run 为 `INTERRU
 - `docs/evidence-schema-depth.md`
 - `docs/investigation-guide.md`
 - `docs/protocol-promotion-matrix.md`
+- `docs/research-maintenance.md`
+- `docs/action-contract.md`
+- `docs/system-model.md`

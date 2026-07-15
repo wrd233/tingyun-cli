@@ -167,8 +167,8 @@ validation task:
 
 - 已知事实：2026-07-15 私有 Capture 中，`detail/exceptions` 在两个独立页面路径均返回非空 exception items 和内嵌 stack；独立 `detail/stackTraces` 对同一 `treeId + traceId` 上下文返回非空 string frame 列表。`treeId` 来自 Call Tree 节点，`traceId` 与 `queryTimestamp` 来自同一 Trace Detail 上下文。
 - 缺失证据：无阻碍本 Gap 成功条件的缺失；跨版本 frame schema 稳定性和批量节点遍历仍未证明，但不属于本 Gap。
-- 对能力影响：Protocol 中 `get_trace_stack` 升为 VERIFIED；Runtime 本轮仍不提升独立 stack source，避免自动节点 fan-out。
-- 下一次 Capture 要补什么：非必需；如要 Runtime promotion，需额外证明明确选点 UX、空节点与多节点的有界语义。
+- 对能力影响：Protocol 中 `get_trace_stack` 为 VERIFIED；v1.2 仅通过已有 exact `trace_tree_node` Evidence Item 晋升单节点 `trace-stack` SOURCE Run，逻辑请求预算为 1，仍禁止自动节点 fan-out。
+- 下一次 Capture 要补什么：非必需；跨版本 frame schema、空节点与更多节点类型可继续积累，但不阻塞当前精确选点合同。
 - 成功判定条件：已满足——非空 frame 且与 exact treeId/traceId 关联。
 - 禁止假设：不得从 exception msg 构造 stack；不得因一次选点成功而自动遍历所有节点。
 - related_capabilities:
@@ -183,7 +183,7 @@ validation task:
 
 closure record:
 - evidence level: LIVE_VERIFIED for non-empty endpoint shape; CROSS_RUN_VERIFIED for non-empty exceptions across two independent Capture paths.
-- runtime note: CLOSED Research Gap does not imply Runtime-promoted.
+- runtime note: v1.2 promotion is explicitly narrower than the full research capability: exact selected node only, no plain Trace input, no guessing, no loop/fan-out.
 
 ## gap_database_nosql_mq_metrics: 数据库/NoSQL/MQ 指标深度不均
 

@@ -14,6 +14,11 @@ def validate_investigation_manifest(value: Any) -> List[Dict[str, Any]]:
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return [{"path": "$", "rule": "schema_unavailable"}]
+    return validate_schema(value, schema)
+
+
+def validate_schema(value: Any, schema: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    """Validate the deterministic JSON-Schema subset shared by local compilers."""
     return _validate(value, schema, path="$")
 
 
@@ -43,6 +48,8 @@ def _validate(value: Any, schema: Mapping[str, Any], *, path: str) -> List[Dict[
                 issues.extend(_validate(value[name], nested_schema, path=f"{path}.{name}"))
 
     if isinstance(value, list):
+        if isinstance(schema.get("minItems"), int) and len(value) < schema["minItems"]:
+            issues.append({"path": path, "rule": "minItems", "minimum": schema["minItems"]})
         if schema.get("uniqueItems") is True:
             seen = set()
             for index, item in enumerate(value):
