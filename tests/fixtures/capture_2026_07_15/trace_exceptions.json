@@ -1,0 +1,11 @@
+{
+  "status": 200,
+  "data": [
+    {
+      "type": "ExampleException",
+      "msg": "example failure",
+      "error": true,
+      "stack": ["example.Service.call(Service.java:1)"]
+    }
+  ]
+}

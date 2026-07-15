@@ -88,10 +88,10 @@ tingyun source alarm-metric-series --source-run-id run-... --source-item-ref ala
 tingyun source recent-requests --source-run-id run-... --source-item-ref item-0001 --time-context last_30m --ranking response
 tingyun source application-instances --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
 tingyun source external-calls --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
-tingyun source trace-exceptions --source-run-id run-... --source-item-ref item-0001 --time-context last_30m
+tingyun source trace-exceptions --source-run-id run-... --source-item-ref trace-node-0001 --time-context last_30m
 ```
 
-除固定 page 1 / size 20 的 `alarm-events` 外，入口必须来自 `source_run_id + source_item_ref`。只有 response ranking 的既有精确血缘且通过 main actionType resolver 时才会暴露 `investigate_trace`；error/throughput ranking 不继承该证明。
+除固定 page 1 / size 20 的 `alarm-events` 外，入口必须来自 `source_run_id + source_item_ref`。告警详情会保留数组型 parentGroup，并为每个 `metrics[]` 生成独立、可选的 metric identity；只有 `$$transaction` target 会保留 Capture 已证明的 actionId 关系。`trace-exceptions` 只接受 Call Tree 产出的 exact `trace_tree_node` item，其身份由 Trace Detail 的 traceId/bizSystemId/queryTimestamp 与 Call Tree 的 treeId 组合；不会从普通 Trace item 猜节点或自动 fan-out。只有 response ranking 的既有精确血缘且通过 main actionType resolver 时才会暴露 `investigate_trace`；error/throughput ranking 不继承该证明。
 
 ## Local Investigation Depth
 

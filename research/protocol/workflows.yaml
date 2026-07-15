@@ -35,6 +35,59 @@
     "excluded_access": ["WRITE", "UNKNOWN"],
     "qualification": "does not add or promote an endpoint and does not claim DubboProvider TX,IF direct Trace proof"
   },
+  "capture_integration_2026_07_15": {
+    "source": "private Raw Capture inspected locally; no Raw evidence committed and no Live request executed",
+    "evidence_model": ["OBSERVED", "VALUE_MATCHED", "LIVE_VERIFIED", "CROSS_RUN_VERIFIED", "UNRESOLVED"],
+    "paths": [
+      {
+        "id": "alarm_event_center_read",
+        "status": "LIVE_VERIFIED_RESEARCH_ONLY",
+        "steps": [
+          "POST /nalarm-api/query/initView",
+          "POST /nalarm-api/query/event/count",
+          "POST /nalarm-api/query/event/chartOfStatus",
+          "POST /nalarm-api/query/event/chartOfDataSource",
+          "POST /nalarm-api/query/event/pageList"
+        ],
+        "rules": ["pageList is the event-center list, not an alias of event/traceList", "bounded pagination and searchText are explicit", "no Runtime promotion in this pass"]
+      },
+      {
+        "id": "alarm_to_transaction_context",
+        "status": "VALUE_MATCHED",
+        "steps": ["list_alarm_events", "read_alarm_event_detail", "resolve_action_context", "list_transactions"],
+        "lineage": "alarm target.value and parentGroup values -> new-tab transaction URL -> action/get path and actionItemList request",
+        "rules": ["verified only for $$transaction alarm targets", "ordinary transaction-page cold start is a separate open gap", "an EMPTY actionItemList response does not invalidate the identity lineage"]
+      },
+      {
+        "id": "alarm_to_metric_series",
+        "status": "LIVE_VERIFIED",
+        "steps": ["read_alarm_event_detail", "read_alarm_metric_series"],
+        "lineage": "metrics[].metric/codeIndex + target.key + alarmEventItems + policy context -> metric/chart request",
+        "rules": ["metric semantics and units remain endpoint/sample scoped"]
+      },
+      {
+        "id": "trace_search_list_to_detail",
+        "status": "LIVE_VERIFIED",
+        "steps": ["search_trace_candidates", "get_trace_detail", "get_trace_call_tree"],
+        "lineage": "trace_current_overview content[].id -> detail.traceId; detail.actionGuid and data.id -> callTree",
+        "rules": ["this path bypasses Candidate-direct actionType resolution", "DubboProvider direct TX/IF remains unresolved"]
+      },
+      {
+        "id": "transaction_error_to_trace",
+        "status": "VALUE_MATCHED",
+        "steps": ["analyze_transaction_errors", "get_trace_detail", "get_trace_call_tree", "list_trace_exceptions", "get_trace_stack"],
+        "lineage": "exceptionStatistics content[].traceGuid -> detail.traceGuid; detail/tree identity -> exceptions and stackTraces",
+        "rules": ["aggregate lists without trace identity are discovery only", "server-side export task creation is WRITE and excluded"]
+      },
+      {
+        "id": "trace_node_exception_stack",
+        "status": "LIVE_VERIFIED",
+        "steps": ["get_trace_detail", "get_trace_call_tree", "list_trace_exceptions", "get_trace_stack"],
+        "lineage": "treeId + traceId + bizSystemId + queryTimestamp remain bound to one trace-node context",
+        "rules": ["exceptions/stackTraces are node-scoped", "no automatic node fan-out", "Runtime trace-exceptions requires an exact trace-node item"]
+      }
+    ]
+  },
   "capabilities": [
     {
       "id": "list_business_systems",
@@ -185,7 +238,7 @@
         "ep_post_server_api_webaction_list_actionitemlist",
         "ep_post_server_api_webaction_list_actionlist"
       ],
-      "semantic": "事务/action item 清单与通用近期统计清单分开；actionList 目前为 documented-only，因此整体能力不升级为完全 VERIFIED。",
+      "semantic": "事务/action item 清单与通用近期统计清单分开。2026-07-15 Capture 对 $$transaction 告警入口证明了 target.value -> 页面 actionId -> action/get path -> actionItemList.actionId 的精确同值链，但该次 actionItemList 返回 EMPTY；普通事务页面冷启动仍无已证明 actionId 来源。actionList 目前为 documented-only，因此整体能力不升级为完全 VERIFIED。",
       "verification": "PARTIALLY_VERIFIED"
     },
     {
@@ -262,19 +315,21 @@
         "timePeriod",
         "endTime",
         "eventType",
-        "frequent"
+        "frequent",
+        "optional ids and idsMode for event-id filtering"
       ],
       "outputs": [
         "alarm event traces",
         "target labels",
-        "policy and agreement IDs"
+        "policy and agreement IDs",
+        "parentGroup key/value array for application and business-system identity"
       ],
       "uses": [
         "ep_post_nalarm_api_event_tracelist",
         "ep_post_nalarm_api_event_trace_countstate",
         "ep_post_nalarm_api_event_trace_triggerchartstate"
       ],
-      "semantic": "告警列表提供 eventTraceId、target、parentGroup 等进入运行对象和 trace 的候选 ID。",
+      "semantic": "event/traceList 提供 eventTraceId、target 与 parentGroup 等进入运行对象的候选 ID；ids/idsMode 是已观察到的事件 ID 筛选变体。独立的 query/event/pageList 属于告警事件中心研究入口，不能与 traceList 当作别名。",
       "verification": "VERIFIED"
     },
     {
@@ -287,14 +342,14 @@
       "outputs": [
         "alarm target",
         "parent application/business system",
-        "metric details"
+        "metric options from metrics[]",
+        "actionId only when target.key is $$transaction and downstream consumption is value-matched"
       ],
       "uses": [
         "ep_post_nalarm_api_event_trace",
-        "ep_post_nalarm_api_event_read",
         "ep_post_nalarm_api_event_metric_chart"
       ],
-      "semantic": "详情响应可证明 target 和 parentGroup，但不能自动证明所有 target value 与 actionId 等价，除非下游请求消费。",
+      "semantic": "详情响应中的 parentGroup 是 key/value 数组，metrics 是可多项数组。2026-07-15 Capture 仅对 $$transaction target 证明 target.value 被页面 URL、action/get 与 actionItemList 精确消费为 actionId；不得推广到其他 targetType。metric/chart 精确消费 metrics[].metric/codeIndex、target.key、完整 alarmEventItems 与策略上下文。event/read 是已读状态 WRITE，不属于本读取能力且禁止 Runtime 执行。",
       "verification": "VERIFIED"
     },
     {
@@ -310,6 +365,9 @@
         "runtime action context for metrics or trace navigation"
       ],
       "uses": [
+        "ep_get_server_api_action_get_actionid",
+        "ep_get_server_api_action_alias_actionid",
+        "ep_get_server_api_setting_action_is_followed_actionid",
         "ep_get_server_api_action_get_12489",
         "ep_get_server_api_action_alias_12489",
         "ep_get_server_api_action_get_13354",
@@ -319,8 +377,53 @@
         "ep_get_server_api_action_get_13514",
         "ep_get_server_api_action_alias_13514"
       ],
-      "semantic": "只表达已观察 action/get 与 action/alias 实例把 deep link、alarm 或页面 actionId 解析为运行对象上下文；它对 action name/alias/application binding 仍有独立价值，但不是 list_recent_requests -> trace/detail 的必需桥梁。",
+      "semantic": "只表达已观察 action/get 与 action/alias 实例把 deep link、alarm 或页面 actionId 解析为运行对象上下文。$$transaction 告警入口已达到 VALUE_MATCHED；普通事务页面入口仍是 PARTIAL。它对 action name/alias/application binding 仍有独立价值，但不是 response ranking 或 trace-list -> trace/detail 的必需桥梁。",
       "verification": "PARTIALLY_VERIFIED"
+    },
+    {
+      "id": "search_trace_candidates",
+      "title": "链路追踪搜索与精确 Trace Candidate 列表",
+      "inputs": [
+        "bounded suggestion key/value filters",
+        "labels/type",
+        "time_context",
+        "bounded overview pagination/filter context"
+      ],
+      "outputs": [
+        "suggestion key/suggestId/type/value",
+        "trace candidate id and traceGuid",
+        "actionGuid/actionId/actionType/actionName",
+        "bizSystemId/applicationId/instanceId",
+        "response time/error/status fields"
+      ],
+      "uses": [
+        "ep_post_server_api_graph_suggestions",
+        "ep_post_server_api_graph_query_overview"
+      ],
+      "semantic": "trace_current_overview.content[].id 被 Trace Detail 请求精确消费为 traceId；traceGuid 是独立字段，不能互换。该路径提供有界只读 candidate dataset，并绕过 Candidate-direct actionType resolver；本轮只进入 Protocol-known / Live-verified，不进入 Runtime Surface。",
+      "verification": "VERIFIED"
+    },
+    {
+      "id": "analyze_transaction_errors",
+      "title": "事务错误/异常聚合与代表样本",
+      "inputs": [
+        "bizSystemId/application/action context",
+        "time_context",
+        "bounded pagination and selected error/exception identity"
+      ],
+      "outputs": [
+        "error/exception aggregate records",
+        "representative exception statistics",
+        "traceGuid/actionGuid/action/application/business-system/instance identity when returned"
+      ],
+      "uses": [
+        "ep_post_server_api_error_smart_errorandexception_list",
+        "ep_post_server_api_error_smart_errorandexception_detail",
+        "ep_post_server_api_error_smart_exceptionmessages_list",
+        "ep_post_server_api_error_smart_exceptionstatistics_list"
+      ],
+      "semantic": "聚合 list/detail 只用于发现；只有 exceptionStatistics.content[] 在本次 Capture 中提供并精确衔接 Trace Detail 的 traceGuid 等身份。创建导出任务是 WRITE，明确排除在本能力之外。",
+      "verification": "VERIFIED"
     },
     {
       "id": "get_trace_detail",
@@ -331,6 +434,7 @@
         "actionType",
         "action_id from list_recent_requests responseList content[] (live-verified observed request shape)",
         "action_id from v1 request_overview Candidate with verified actionType mapping",
+        "traceId from trace_current_overview content[].id",
         "traceGuid or actionGuid",
         "queryTimestamp when required",
         "time_context"
@@ -352,7 +456,7 @@
       "uses": [
         "ep_post_server_api_action_trace_detail"
       ],
-      "semantic": "已验证入口至少包括 v1 request_overview Candidate actionId + verified actionType mapping、list_recent_requests.responseList content[].actionId，以及既有观察到的 traceGuid/actionGuid identity。v1 runtime 只编码 WEB->WEB、TX->TX、BG->BG、TX,IF->TX；未知 composite withheld。detail 输出 actionGuid 与 data.id(traceId) 供 callTree 精确消费。Trace Detail 内嵌 timeline、trace-local topology、serviceFlow/requestServiceFlow、exceptions 和部分 stack evidence；这些不替代业务系统整体拓扑或独立 stackTraces endpoint。",
+      "semantic": "已验证入口包括 v1 request_overview Candidate actionId + verified actionType mapping、list_recent_requests.responseList content[].actionId、trace_current_overview.content[].id 作为 traceId，以及既有 traceGuid identity。v1 runtime 只编码 WEB->WEB、TX->TX、BG->BG、TX,IF->TX；未知 composite withheld。trace-list 路径绕过 direct actionType resolver，不能用来关闭 DubboProvider TX,IF direct resolver gap。detail 输出 actionGuid、response data.id(traceId) 与 timestamp；callTree 再输出 treeNode[].id，二者组合形成节点级 exception/stack 身份。",
       "verification": "VERIFIED"
     },
     {
@@ -379,9 +483,11 @@
       "id": "list_trace_exceptions",
       "title": "Trace Exception 列表",
       "inputs": [
-        "traceId/actionGuid or trace context",
-        "bizSystemId/applicationId",
-        "time_context"
+        "treeId from exact get_trace_call_tree treeNode[].id",
+        "traceId from get_trace_detail data.id",
+        "bizSystemId",
+        "queryTimestamp from detail/call-tree context",
+        "time_context and lang"
       ],
       "outputs": [
         "exception records",
@@ -390,16 +496,17 @@
       "uses": [
         "ep_post_server_api_action_trace_detail_exceptions"
       ],
-      "semantic": "异常列表是独立 trace detail supplement，不由 callTree 字段推断。",
+      "semantic": "异常列表是 node-scoped supplement：请求精确使用 treeId、traceId、bizSystemId、queryTimestamp、time context 与 lang；不使用 applicationId/actionGuid/actionType 替代节点身份。两个独立 Capture 路径均得到非空 exception item 与非空内嵌 stack。",
       "verification": "VERIFIED"
     },
     {
       "id": "get_trace_stack",
       "title": "Trace Stack 读取",
       "inputs": [
-        "trace context",
-        "node/tree context when required by endpoint contract",
-        "time_context"
+        "same treeId and traceId as the selected exception node",
+        "bizSystemId",
+        "queryTimestamp",
+        "time_context and lang"
       ],
       "outputs": [
         "stack trace envelope",
@@ -408,8 +515,8 @@
       "uses": [
         "ep_post_server_api_action_trace_detail_stacktraces"
       ],
-      "semantic": "Endpoint 已观察，但代表性非空 stack frame 覆盖不足；不能从 exception message 构造 stack。",
-      "verification": "PARTIALLY_VERIFIED"
+      "semantic": "2026-07-15 Capture 对与 exception 相同的 treeId + traceId 上下文得到非空 string frame 列表；不能从 exception message 构造 stack，也不能把一次节点成功推广为自动遍历所有节点。",
+      "verification": "VERIFIED"
     },
     {
       "id": "get_trace_agent_context",
@@ -613,7 +720,7 @@
         "只在分页响应提供下一页或 total/page 条件时继续翻页",
         "发现真实 dependency type 才读取对应 dependency 能力",
         "服务接口和组件操作作为可选扩展读取；未验证能力只记录 gap，不补链路",
-        "list_transactions/actionItemList 仅在已有验证来源的 actionId 时执行；冷启动 actionId 来源未证明时跳过并记录 gap_runtime_to_trace_list。",
+        "list_transactions/actionItemList 仅在已有验证来源的 actionId 时执行；$$transaction 告警入口已有 VALUE_MATCHED 来源，普通事务页面冷启动仍跳过并记录 gap_transaction_page_actionitem_cold_start。",
         "Candidate Dataset 固定使用 request_overview List API；Export/Download 只作为研究验证或未来 file-native source，不作为 Runtime fallback。",
         "Core runtime 不执行 responseList；只有显式 Advanced Source response-ranking recipe 可执行该 READ path，errorList/throughtList 不继承 Trace lineage。"
       ]
@@ -645,6 +752,10 @@
           "required": false
         },
         {
+          "capability": "analyze_transaction_errors",
+          "required": false
+        },
+        {
           "capability": "get_trace_detail",
           "required": true
         },
@@ -662,9 +773,10 @@
         }
       ],
       "rules": [
-        "告警 target.value 不默认等价 actionId；必须由 action/get、action/alias、页面 URL 或下游请求证明",
+        "告警 target.value 不默认等价 actionId；本次仅对 $$transaction target 由页面 URL、action/get 与 actionItemList 精确同值证明",
+        "actionItemList 的 EMPTY 结果不否定已证明的身份链，但也不证明普通事务页面冷启动",
         "跨页面 deep link、Action 身份解析与 Trace API 验证分开记录",
-        "没有已验证来源的 Trace Detail entry identity 时不得构造 detail 请求；已验证入口包括 responseList.actionId 与既有 traceGuid/actionGuid 合同。",
+        "没有已验证来源的 Trace Detail entry identity 时不得构造 detail 请求；已验证入口包括 responseList.actionId、trace-list content[].id 与 exceptionStatistics.traceGuid。",
         "日志搜索只是 optional enrichment，空结果不影响告警到 Trace 核心链判断"
       ]
     },
@@ -674,6 +786,7 @@
       "verification": "VERIFIED",
       "inputs": [
         "action_id from list_recent_requests responseList content[]",
+        "traceId from trace_current_overview content[].id",
         "traceGuid/actionGuid",
         "bizSystemId",
         "applicationId when present in observed trace context",
@@ -691,7 +804,7 @@
         },
         {
           "capability": "list_trace_exceptions",
-          "required": true
+          "required": false
         },
         {
           "capability": "get_trace_stack",
@@ -707,11 +820,33 @@
         }
       ],
       "rules": [
-        "v1 request_overview Candidate 使用 exact verified actionType resolver 进入 get_trace_detail；responseList.content[].actionId 也可作为 research live-verified 入口直接进入 get_trace_detail；无需先通过 resolve_action_context",
-        "detail/callTree/exceptions 的参数链必须来自同一 trace evidence 或明确进入 gap",
+        "v1 request_overview Candidate 使用 exact verified actionType resolver 进入 get_trace_detail；responseList.content[].actionId 与 trace_current_overview.content[].id 也可作为 live-verified 入口；无需先通过 resolve_action_context",
+        "detail/callTree 的参数链必须来自同一 trace evidence；exceptions/stack 还必须绑定 exact treeId + traceId + queryTimestamp 节点身份",
         "actionGuid.value == traceGuid.value 只记录为本次 live sample 观察，不建立语义等价、fallback 或自动互换规则",
-        "stack、agent context、log search 是 optional enrichment；PARTIALLY_VERIFIED 不作为 VERIFIED 核心链必需步骤",
+        "exceptions、stack、agent context、log search 是 optional enrichment；缺少异常节点时不自动 fan-out 或猜 treeId",
         "空日志结果只证明 envelope，不证明 item 字段"
+      ]
+    },
+    {
+      "id": "trace_search_to_detail",
+      "title": "链路追踪搜索列表到 Trace 深挖",
+      "verification": "VERIFIED",
+      "inputs": [
+        "bounded search filters",
+        "single time_context",
+        "explicit selected trace_current_overview item"
+      ],
+      "steps": [
+        {"capability": "search_trace_candidates", "required": true},
+        {"capability": "get_trace_detail", "required": true},
+        {"capability": "get_trace_call_tree", "required": true},
+        {"capability": "list_trace_exceptions", "required": false},
+        {"capability": "get_trace_stack", "required": false}
+      ],
+      "rules": [
+        "只把 selected content[].id 作为 detail.traceId；不得以 traceGuid 代替",
+        "该路径绕过 direct actionType resolver，因此不能关闭 DubboProvider TX,IF direct resolver gap",
+        "异常与堆栈只对显式选中的 exact tree node 执行，不遍历所有节点"
       ]
     },
     {

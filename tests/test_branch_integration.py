@@ -58,7 +58,7 @@ def _write_item_run(store, item):
 def test_advanced_source_safety_surface_is_exactly_the_formal_recipe_paths():
     time_context = {"endpoint": {"timePeriod": 30, "endTime": "2026-07-08 08:50"}}
     identity = {"alarmEventId": "alarm-1", "metric": "response", "codeIndex": "avg", "policyId": "policy-1", "policyCheckMode": 1, "product": "SERVER", "targetType": "ACTION", "eventItems": [{"eventTraceId": "event-1"}]}
-    trace_identity = {"bizSystemId": "biz-1", "applicationId": "app-1", "actionGuid": "guid-1", "traceId": "trace-1", "actionType": "WEB"}
+    trace_identity = {"bizSystemId": "biz-1", "treeId": "tree-1", "traceId": "trace-1", "queryTimestamp": 1000}
     requests = [
         *performance_timeseries_requests("biz-1", time_context)[1:],
         alarm_events_request(time_context),

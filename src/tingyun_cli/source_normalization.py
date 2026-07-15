@@ -34,7 +34,7 @@ def _alarm_events(rows, source, run_id, raw_ref):
     items = []
     for index, row in enumerate(rows, 1):
         alarm_id = row.get("id") or row.get("eventId") or row.get("eventTraceId")
-        parent = row.get("parentGroup") if isinstance(row.get("parentGroup"), Mapping) else {}
+        parent = _parent_group(row.get("parentGroup"))
         business_id = parent.get("$biz_system_id") or parent.get("bizSystemId")
         application_id = parent.get("$application_id") or parent.get("applicationId")
         items.append({"item_ref": f"alarm-event-{index:04d}", "item_type": "alarm_event", "kind": "alarm_event", "name": _target_name(row, alarm_id), "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "alarm", "alarm_id": alarm_id}, "source": {"capability": source["capability"]}, "identity": {"alarm_id": alarm_id, "business_system_id": business_id, "application_id": application_id}, "wire_identity": {"alarmEventId": alarm_id, "bizSystemId": business_id, "applicationId": application_id}, "available_actions": []})
@@ -43,20 +43,34 @@ def _alarm_events(rows, source, run_id, raw_ref):
 
 def _alarm_detail(rows, source, run_id, raw_ref):
     items = []
-    for index, row in enumerate(rows, 1):
-        parent = row.get("parentGroup") if isinstance(row.get("parentGroup"), Mapping) else {}
+    item_index = 0
+    for row in rows:
+        parent = _parent_group(row.get("parentGroup"))
         alarm_id = row.get("id") or source.get("alarm_id")
         business_id = parent.get("$biz_system_id") or parent.get("bizSystemId") or source.get("business_system_id")
         application_id = parent.get("$application_id") or parent.get("applicationId") or source.get("application_id")
         event_items = row.get("eventItems") or row.get("alarmEventItems") or []
         event_trace_ids = [item.get("eventTraceId") for item in event_items if isinstance(item, Mapping) and item.get("eventTraceId") not in (None, "")]
-        wire = {"alarmEventId": alarm_id, "bizSystemId": business_id, "applicationId": application_id}
-        for field in ("metric", "codeIndex", "policyId", "policyCheckMode", "product", "targetType"):
-            if row.get(field) not in (None, ""):
-                wire[field] = row[field]
-        if event_items:
-            wire["eventItems"] = event_items
-        items.append({"item_ref": f"alarm-detail-{index:04d}", "item_type": "alarm_detail", "kind": "alarm_detail", "name": _target_name(row, alarm_id), "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "alarm", "alarm_id": alarm_id}, "source": {"capability": source["capability"]}, "identity": {"alarm_id": alarm_id, "business_system_id": business_id, "application_id": application_id, "event_trace_ids": event_trace_ids}, "wire_identity": wire, "available_actions": []})
+        target = row.get("target") if isinstance(row.get("target"), Mapping) else {}
+        metrics = [metric for metric in row.get("metrics", []) if isinstance(metric, Mapping)] or [row]
+        for metric in metrics:
+            item_index += 1
+            wire = {"alarmEventId": alarm_id, "bizSystemId": business_id, "applicationId": application_id}
+            for field in ("metric", "codeIndex"):
+                if metric.get(field) not in (None, ""):
+                    wire[field] = metric[field]
+            for field in ("policyId", "policyCheckMode", "product"):
+                if row.get(field) not in (None, ""):
+                    wire[field] = row[field]
+            if target.get("key") not in (None, ""):
+                wire["targetType"] = target["key"]
+            elif row.get("targetType") not in (None, ""):
+                wire["targetType"] = row["targetType"]
+            if target.get("key") == "$$transaction" and target.get("value") not in (None, ""):
+                wire["actionId"] = target["value"]
+            if event_items:
+                wire["eventItems"] = event_items
+            items.append({"item_ref": f"alarm-detail-{item_index:04d}", "item_type": "alarm_detail", "kind": "alarm_detail", "name": _target_name(row, alarm_id), "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "alarm", "alarm_id": alarm_id}, "source": {"capability": source["capability"]}, "identity": {"alarm_id": alarm_id, "business_system_id": business_id, "application_id": application_id, "action_id": wire.get("actionId"), "event_trace_ids": event_trace_ids}, "wire_identity": wire, "available_actions": []})
     return items
 
 
@@ -105,7 +119,7 @@ def _exceptions(rows, source, run_id, raw_ref):
     items = []
     for index, row in enumerate(rows, 1):
         exception_class = row.get("exceptionClass") or row.get("exception_class") or row.get("class") or row.get("type")
-        items.append({"item_ref": f"trace-exception-{index:04d}", "item_type": "trace_exception", "kind": "trace_exception", "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "trace", "trace_id": source["trace_id"]}, "source": {"capability": source["capability"]}, "identity": {"business_system_id": source["business_system_id"], "application_id": source["application_id"], "trace_id": source["trace_id"], "action_guid": source["action_guid"], "exception_class": exception_class}, "message": row.get("message") or row.get("errorMessage") or row.get("msg"), "stack": row.get("stack") or [], "signal_type": classify_exception_signal(row), "wire_signal": dict(row), "available_actions": []})
+        items.append({"item_ref": f"trace-exception-{index:04d}", "item_type": "trace_exception", "kind": "trace_exception", "source_run_id": run_id, "source_refs": [raw_ref], "scope": {"type": "trace_node", "trace_id": source["trace_id"], "tree_id": source["tree_id"]}, "source": {"capability": source["capability"]}, "identity": {"business_system_id": source["business_system_id"], "trace_id": source["trace_id"], "tree_id": source["tree_id"], "query_timestamp": source["query_timestamp"], "exception_class": exception_class}, "message": row.get("message") or row.get("errorMessage") or row.get("msg"), "stack": row.get("stack") or [], "signal_type": classify_exception_signal(row), "wire_signal": dict(row), "available_actions": []})
     return items
 
 
@@ -125,7 +139,29 @@ def _series(response):
     data = response.get("data")
     if isinstance(data, Mapping) and isinstance(data.get("series"), list):
         return [dict(point) for point in data["series"] if isinstance(point, Mapping)]
+    chart = data.get("chart") if isinstance(data, Mapping) and isinstance(data.get("chart"), Mapping) else None
+    if isinstance(chart, Mapping) and isinstance(chart.get("series"), list):
+        points = []
+        for series in chart["series"]:
+            if not isinstance(series, Mapping):
+                continue
+            series_points = series.get("data") or series.get("points") or []
+            if isinstance(series_points, list):
+                for point in series_points:
+                    if isinstance(point, Mapping):
+                        points.append({"series_name": series.get("name"), **dict(point)})
+            if not series_points:
+                points.append(dict(series))
+        return points
     return _extract_rows(response)
+
+
+def _parent_group(value):
+    if isinstance(value, Mapping):
+        return dict(value)
+    if isinstance(value, list):
+        return {str(item["key"]): item.get("value") for item in value if isinstance(item, Mapping) and item.get("key") not in (None, "")}
+    return {}
 
 
 def _graph_nodes(response):

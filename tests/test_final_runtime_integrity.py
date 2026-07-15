@@ -220,7 +220,7 @@ SOURCE_CASES = [
     ("recent_requests", "throughput", {"bizSystemId": "biz-1"}, {"status": 200, "data": {"content": [{"applicationId": "app-1", "actionId": "action-1", "requestType": "WEB"}]}}, "recent_requests.json"),
     ("application_instances", "response", {"bizSystemId": "biz-1", "applicationId": "app-1"}, {"status": 200, "data": {"nodes": [{"type": "INSTANCE", "instanceId": "instance-1"}]}}, "instance_context.json"),
     ("external_calls", "response", {"bizSystemId": "biz-1", "applicationId": "app-1"}, {"status": 200, "data": {"content": [{"host": "upstream.example", "callCount": 1}]}}, "external_calls.json"),
-    ("trace_exceptions", "response", {"bizSystemId": "biz-1", "applicationId": "app-1", "actionGuid": "guid-1", "traceId": "trace-1", "actionType": "WEB"}, {"status": 200, "data": {"content": [{"exceptionClass": "ExampleError", "message": "failed"}]}}, "trace_exceptions.json"),
+    ("trace_exceptions", "response", {"bizSystemId": "biz-1", "treeId": "tree-1", "traceId": "trace-1", "queryTimestamp": 1000}, {"status": 200, "data": [{"type": "ExampleError", "msg": "failed", "stack": ["example.Frame.call(Frame.java:1)"]}]}, "trace_exceptions.json"),
 ]
 
 
@@ -234,7 +234,7 @@ def test_all_advanced_source_recipes_execute_through_runtime(capability, ranking
         source_item_ref = "item-0001"
         source_run_id = _write_item_run(store, {
             "item_ref": source_item_ref,
-            "kind": "fixture",
+            "kind": "trace_tree_node" if capability == "trace_exceptions" else "fixture",
             "wire_identity": wire_identity,
         })
     transport = SequenceTransport([response])

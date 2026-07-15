@@ -207,7 +207,7 @@ def run_investigate(
         else:
             result = executor.execute(_call_tree_request(source, time_context))
             artifact_name = "call_tree.json"
-            artifact = _call_tree_artifact(result, source, source_run_id, time_context)
+            artifact = _call_tree_artifact(result, source, source_run_id, run.run_id, time_context)
         artifacts = {artifact_name: artifact}
         store.write_json(run.path / "evidence" / artifact_name, artifact)
         coverage = _coverage_from_artifacts(artifacts)
@@ -459,19 +459,12 @@ def _source_request_for_capability(
             return application_instances_request(str(biz_id), str(app_id), time_context), "instance_context.json", "instance_context", metadata
         return external_uri_request(str(biz_id), str(app_id), time_context), "external_calls.json", "external_calls", metadata
     if capability == "trace_exceptions":
-        required = ("bizSystemId", "applicationId", "actionGuid", "traceId")
+        if (source or {}).get("kind") != "trace_tree_node":
+            raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
+        required = ("bizSystemId", "treeId", "traceId", "queryTimestamp")
         if any(identity.get(field) in (None, "") for field in required):
             raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
-        request_type = str(identity.get("requestType") or identity.get("actionType") or "")
-        semantic_kind = (source or {}).get("semantic_kind") or candidate_semantic_kind(str((source or {}).get("name") or ((source or {}).get("summary") or {}).get("actionName") or ""), request_type)
-        action_type = resolve_verified_trace_action_type(str(semantic_kind), request_type)
-        if action_type is None and str(identity.get("actionType") or "") in {"WEB", "TX", "BG", "IF"}:
-            action_type = str(identity["actionType"])
-        if action_type is None:
-            raise ValueError("SOURCE_IDENTITY_INCOMPLETE")
-        resolved = dict(identity)
-        resolved["actionType"] = action_type
-        return trace_exceptions_request(resolved, time_context), "trace_exceptions.json", "trace_exceptions", {"capability": "list_trace_exceptions", "business_system_id": str(identity["bizSystemId"]), "application_id": str(identity["applicationId"]), "action_guid": str(identity["actionGuid"]), "trace_id": str(identity["traceId"]), **parent}
+        return trace_exceptions_request(identity, time_context), "trace_exceptions.json", "trace_exceptions", {"capability": "list_trace_exceptions", "business_system_id": str(identity["bizSystemId"]), "tree_id": str(identity["treeId"]), "trace_id": str(identity["traceId"]), "query_timestamp": identity["queryTimestamp"], **parent}
     raise ValueError("CAPABILITY_NOT_EXPOSED")
 
 
@@ -707,6 +700,7 @@ def _call_tree_request(source: Dict[str, Any], time_context: Dict[str, Any]) -> 
             "traceId": identity.get("traceId"),
             "actionId": identity.get("actionId"),
             "actionType": identity.get("actionType") or resolve_verified_trace_action_type(str(source.get("semantic_kind") or "UNKNOWN"), str(identity.get("requestType") or "")),
+            "queryTimestamp": identity.get("queryTimestamp"),
             "timePeriod": str(endpoint["timePeriod"]),
             "endTime": endpoint["endTime"],
             "lang": "zh_CN",
@@ -897,9 +891,11 @@ def _trace_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_
             identity["actionType"] = resolved_action_type
     if data.get("actionGuid"):
         identity["actionGuid"] = data["actionGuid"]
-    trace_id = nested.get("id") or data.get("id") or data.get("traceId")
+    trace_id = data.get("id") or data.get("traceId") or nested.get("id")
     if trace_id:
         identity["traceId"] = trace_id
+    if data.get("timestamp") not in (None, ""):
+        identity["queryTimestamp"] = data["timestamp"]
     summary = {k: data.get(k) for k in ("duration", "respTime", "actionName", "actionAlias", "applicationName", "bizSystemName") if k in data}
     item = {
         "item_ref": "item-0001",
@@ -934,11 +930,61 @@ def _trace_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_
     }
 
 
-def _call_tree_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_id: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
+def _trace_node_items(tree_nodes, *, identity, query_timestamp, source, source_run_id, source_refs, semantic_kind):
+    business_system_id = identity.get("bizSystemId")
+    trace_id = identity.get("traceId")
+    if business_system_id in (None, "") or trace_id in (None, "") or query_timestamp in (None, ""):
+        return []
+    roots = tree_nodes if isinstance(tree_nodes, list) else [tree_nodes]
+    nodes = []
+
+    def visit(node):
+        if not isinstance(node, dict):
+            return
+        nodes.append(node)
+        children = node.get("child") or node.get("children") or []
+        if isinstance(children, list):
+            for child in children:
+                visit(child)
+
+    for root in roots:
+        visit(root)
+    items = []
+    for node in nodes:
+        tree_id = node.get("id") or node.get("treeId")
+        if tree_id in (None, ""):
+            continue
+        items.append({
+            "item_ref": f"trace-node-{len(items) + 1:04d}",
+            "item_type": "trace_tree_node",
+            "kind": "trace_tree_node",
+            "name": node.get("name") or node.get("method") or str(tree_id),
+            "source_run_id": source_run_id,
+            "source_item_ref": source.get("item_ref"),
+            "semantic_kind": semantic_kind,
+            "scope": {"type": "trace_node", "trace_id": trace_id, "tree_id": tree_id},
+            "wire_identity": {"bizSystemId": business_system_id, "traceId": trace_id, "treeId": tree_id, "queryTimestamp": query_timestamp},
+            "source_refs": source_refs,
+            "available_actions": [],
+        })
+    return items
+
+
+def _call_tree_artifact(result: ExecutionResult, source: Dict[str, Any], source_run_id: str, current_run_id: str, time_context: Dict[str, Any]) -> Dict[str, Any]:
     if result.outcome == "FAILED":
-        return _failed_artifact("call_tree", None, time_context, result, data={"source_item": {"run_id": source_run_id, "item_ref": source.get("item_ref")}, "call_tree": {}})
+        return _failed_artifact("call_tree", None, time_context, result, data={"source_item": {"run_id": source_run_id, "item_ref": source.get("item_ref")}, "call_tree": {}, "items": []})
     response = result.response or {}
-    data = response.get("data", {})
+    data = response.get("data") if isinstance(response.get("data"), dict) else {}
+    identity = dict(source.get("wire_identity", {}))
+    node_items = _trace_node_items(
+        data.get("treeNode") or [],
+        identity=identity,
+        query_timestamp=identity.get("queryTimestamp"),
+        source=source,
+        source_run_id=current_run_id,
+        source_refs=_derived_from(result),
+        semantic_kind=source.get("semantic_kind"),
+    )
     return {
         "schema_version": 1,
         "kind": "call_tree",
@@ -946,7 +992,7 @@ def _call_tree_artifact(result: ExecutionResult, source: Dict[str, Any], source_
         "time_context": time_context,
         "derived_from": _derived_from(result),
         "execution": _execution_metadata(result),
-        "data": {"source_item": {"run_id": source_run_id, "item_ref": source.get("item_ref")}, "call_tree": data},
+        "data": {"source_item": {"run_id": source_run_id, "item_ref": source.get("item_ref")}, "call_tree": data, "items": node_items},
     }
 
 

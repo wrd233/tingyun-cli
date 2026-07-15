@@ -1,29 +1,31 @@
 # 听云能力协议基线
 
-本协议基线主体来自本地离线证据：6 组 AI-ready Session、2 份官方 API PDF、12 个导出文件；另吸收 2026-07-07 已完成的低频只读 live validation 结论。当前 v1 runtime 状态为 `Core Golden Path Live-Validated + Integrated Investigation Depth`，范围限定为已测试目标、时间窗口和 runtime version；Advanced Source 只按既有证据分级，不声明全部 Live-Proven。本文档不包含 Cookie、Token、Authorization 或内部 origin，不实现写操作执行器或 Agent/LLM 系统。
+本协议基线主体来自本地离线证据：8 组 Capture Session、2 份官方 API PDF、12 个既有导出文件，并吸收 2026-07-07 已完成的低频只读 live validation 结论。新增两组 2026-07-15 私有 Raw Capture 只在本地分析，未提交 Raw、内部 origin、个人信息或凭据。当前 v1 runtime 状态为 `Core Golden Path Live-Validated + Integrated Investigation Depth`，范围限定为已测试目标、时间窗口和 runtime version；Advanced Source 只按既有证据分级，不声明全部 Live-Proven。
 
 Runtime 保持三层：Core Collect 固定 3 个逻辑请求；Advanced Source 每次只运行一个固定串行 READ recipe 并创建 SOURCE Run；本地 depth/workflow plan 为 0 HTTP、0 Run。WRITE/UNKNOWN 与 research-only endpoint 不进入生产安全面。
 
 ## 覆盖基线
 
-- `sessions_processed`: 6/6
-- `session_files_inspected`: 2943/2943
-- `network_records_scanned`: 1493/1493
-- `observed_method_path_all`: 216
-- `observed_service_method_path_catalogued`: 202
+- `sessions_processed`: 8/8
+- `session_files_inspected`: 5246/5246
+- `network_records_scanned`: 1995/1995
+- `observed_method_path_all`: 226
+- `observed_service_method_path_catalogued`: 212
 - `static_or_ui_records_scanned_not_catalogued`: 47
 - `documented_endpoint_method_path_catalogued`: 224
 - `official_documents_inventoried`: 2/2
 - `export_files_inspected`: 12/12
 - `export_sheets_inspected`: 12
-- `catalogued_endpoint_entries`: 390
-- `identified_variants`: 431
+- `catalogued_endpoint_entries`: 400
+- `identified_variants`: 442
 
 ## Endpoint / Variant 原则
 
 Endpoint 以 `method + path` 为总账键；同一路径仅在判别参数改变业务语义、请求/响应结构实质变化或下游血缘不同时拆 Variant。普通 ID、时间窗口、分页、排序方向、搜索词和过滤值不单独拆 Variant。官方文档与真实 Session 不自动合并为 fallback；只有 exact `method + path` 共享同一合同。
 
 三条独立分类轴固定为 `access`、`role`、`verification`。`VERIFIED` 需要真实请求、可解释响应、关键输入/响应字段、下游用途和 Evidence Reference；空列表只证明 endpoint/envelope，不证明 item 字段。
+
+本轮增量使用更细的证据标签：`OBSERVED` 仅表示本次 UI journey 中出现；`VALUE_MATCHED` 表示两个可观察位置精确同值；`LIVE_VERIFIED` 表示已记录请求形状得到可解释且符合所述非空结构的真实响应；`CROSS_RUN_VERIFIED` 表示独立样本或路径重复证明；`UNRESOLVED` 保留缺失身份或稳定性。四个生命周期必须分开：Protocol-known、Live-observed/verified、Runtime-promoted。新 Endpoint 存在或一次成功不自动进入 CLI。
 
 ## Shared Wire Conventions
 
@@ -54,6 +56,10 @@ Deterministic Evidence Composition 通过显式 Investigation Manifest 绑定 Al
 ### 问题溯源
 
 已观察到告警入口、Action/运行对象身份桥梁、近期请求入口、Candidate direct Trace 入口和已知 Trace 入口。当前 Core Golden Path 是 `discover -> collect(request_overview candidates) -> inspect candidates -> investigate_trace -> inspect_call_tree`。Advanced Source 可通过固定 `recent-requests --ranking response` recipe 使用 business-system-scoped `responseList`；其 `content[].actionId` 精确进入 `trace/detail.request.actionId`，detail 再提供 `actionGuid` 与 `data.id(traceId)` 给 callTree。该证明不继承到 errorList/throughtList，也不把 responseList 变成 Core 路径。Trace Detail 内嵌 exceptions/stack 与独立 `detail/exceptions` source Evidence 保持分离。
+
+2026-07-15 Capture 进一步证明了四条边界清晰的路径。第一，`$$transaction` 告警详情的 target 与 parentGroup 身份被新标签页、Action lookup 和 `actionItemList` 精确消费；这只关闭告警入口身份 Gap，普通事务页面 cold start 仍开放。第二，告警详情的 `metrics[]`、target type、完整 event items 与策略上下文被 metric/chart 请求精确消费并返回非空 series。第三，链路追踪 `trace_current_overview.content[].id` 被 detail 精确消费为 `traceId`，detail 的 actionGuid/data.id 再进入 callTree；该 list-driven 路径不证明 DubboProvider direct actionType。第四，exceptions/stackTraces 是节点级分支，精确依赖 treeId、traceId、bizSystemId、queryTimestamp 与时间上下文，并得到非空异常和堆栈。
+
+事务错误分析中，聚合 list/detail 只形成发现入口；`exceptionStatistics.content[]` 才提供被 detail 精确消费的 traceGuid 等身份。`errorExport/creatTask` 创建服务端任务，分类为 WRITE，即使随后下载表格也不进入 READ Runtime。告警详情之后触发的 `event/read` 是已读状态 WRITE，不再混入详情读取 Capability；本轮未捕获 readFlag 前后回读。所有页面 URL 本轮仅 OBSERVED，因为未完成 reload/new-tab/cross-session verify。
 
 ## 能力覆盖矩阵
 
@@ -89,16 +95,18 @@ Deterministic Evidence Composition 通过显式 Investigation Manifest 绑定 Al
 | 性能与运行指标 | 请求统计清单 | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
 | 性能与运行指标 | Business-System Response Time Series | VERIFIED | `read_performance_timeseries` | `scan_business_system` | `` |
 | 问题溯源 | 告警入口 | VERIFIED | `list_alarm_events` | `alarm_to_trace` | `` |
-| 问题溯源 | Action / 运行对象身份 | PARTIALLY_VERIFIED | `resolve_action_context` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
-| 问题溯源 | 运行对象入口 | PARTIALLY_VERIFIED | `list_transactions` | `alarm_to_trace` | `gap_runtime_to_trace_list` |
+| 问题溯源 | Action / 运行对象身份 | PARTIALLY_VERIFIED | `resolve_action_context` | `alarm_to_trace` | `gap_transaction_page_actionitem_cold_start` |
+| 问题溯源 | 运行对象入口 | PARTIALLY_VERIFIED | `list_transactions` | `alarm_to_trace` | `gap_transaction_page_actionitem_cold_start` |
 | 问题溯源 | 近期清单入口 | VERIFIED | `list_recent_requests` | `scan_business_system` | `` |
 | 问题溯源 | 近期请求 → Trace | VERIFIED | `list_recent_requests` -> `get_trace_detail` -> `get_trace_call_tree` | `trace_investigation` | `` |
 | 问题溯源 | 已知 Trace 入口 | VERIFIED | `get_trace_detail` | `trace_investigation` | `` |
-| 问题溯源 | Trace 列表 | PARTIALLY_VERIFIED | `list_transactions` | `trace_investigation` | `gap_runtime_to_trace_list` |
+| 问题溯源 | 链路追踪搜索 / Trace Candidate 列表 | VERIFIED | `search_trace_candidates` | `trace_search_to_detail` | `` |
+| 问题溯源 | 普通事务页面 Trace 列表 | PARTIALLY_VERIFIED | `list_transactions` | `trace_investigation` | `gap_transaction_page_actionitem_cold_start` |
+| 问题溯源 | 错误/异常代表样本 | VERIFIED | `analyze_transaction_errors` | `alarm_to_trace` | `gap_error_analysis_error_to_trace` |
 | 问题溯源 | Trace Detail | VERIFIED | `get_trace_detail` | `trace_investigation` | `` |
 | 问题溯源 | Call Tree | VERIFIED | `get_trace_call_tree` | `trace_investigation` | `` |
 | 问题溯源 | Exception | VERIFIED | `list_trace_exceptions` | `trace_investigation` | `` |
-| 问题溯源 | Stack | PARTIALLY_VERIFIED | `get_trace_stack` | `trace_investigation` | `gap_stack_non_empty` |
+| 问题溯源 | Stack | VERIFIED | `get_trace_stack` | `trace_investigation` | `` |
 
 ## 单 Session 连续真实回放
 
@@ -141,7 +149,9 @@ Evidence status 使用 `CONFIRMED`、`SUPPORTED`、`UNRESOLVED`、`CONTRADICTED`
 | 业务系统拓扑扫描 | `01-business-system-top-down` | `list_business_systems` -> `read_business_topology` | VERIFIED CONNECTION | 同 Session 内业务系统、应用和调用边有连续请求证据。 |
 | 应用深入指标 | `02-application-deep-dive` + `20260707-0400-micro-shape-scope-validation` | `read_application_overview` -> `read_performance_timeseries` -> `list_recent_requests` / `list_transactions` / `list_external_calls` | LIVE-VERIFIED COMPOSITE | `application/charts/response` 的 business-system response-time series shape 已 live-confirmed；与 01 使用同类 `server-api` Endpoint 和相同对象类型，但不是一次真实连续操作。 |
 | 近期请求到 Trace | `live_evidence_round_2_2026-07-07` | `list_recent_requests` -> `get_trace_detail` -> `get_trace_call_tree` | LIVE-VERIFIED CONNECTION | `responseList.content[].actionId` 直接进入 trace/detail，detail 输出 `actionGuid` 与 `data.id(traceId)` 进入 callTree。 |
-| 告警到 Trace | `03-alarm-to-trace` | `list_alarm_events` -> `read_alarm_event_detail` -> `resolve_action_context` -> `get_trace_detail` -> `get_trace_call_tree` | VERIFIED CONNECTION WITH GAPS | 同 Session 内存在告警、运行对象身份桥梁和 Trace 深挖链路；剩余缺口只指向 transaction/actionItemList 的冷启动 `actionId` 来源。 |
+| 告警到事务上下文 | `2026-07-15 private Capture` | `list_alarm_events` -> `read_alarm_event_detail` -> `resolve_action_context` -> `list_transactions` | VALUE-MATCHED CONNECTION | 仅对 `$$transaction` target 精确证明 action/application/business-system 身份；actionItemList 为空且普通事务页面 cold start 仍独立开放。 |
+| Trace 搜索到详情 | `2026-07-15 private Capture` | `search_trace_candidates` -> `get_trace_detail` -> `get_trace_call_tree` | LIVE-VERIFIED CONNECTION | overview item `id` 进入 detail.traceId；该 list-driven 路径不证明 direct actionType resolver。 |
+| 异常节点到 Stack | `2026-07-15 private Capture` | `get_trace_detail` -> `list_trace_exceptions` -> `get_trace_stack` | LIVE-VERIFIED CONNECTION | exceptions 与 stackTraces 共享 exact treeId/traceId，上游 queryTimestamp 绑定同一 Trace；Runtime 只提升已存在的 exception Source，不提升 stack。 |
 | 写能力证据保存 | `04/05/06` | `manage_business_settings` / `manage_anomaly_detection_policy` / `manage_alarm_rules` | EVIDENCE PRESERVED | 写能力保留为 Endpoint Contract 与 Capability 证据；不再作为正式业务 Recipe，不参与自动执行。 |
 
 ## 导出字段语义对照

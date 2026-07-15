@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "data": {
+    "id": "alarm-fake-1",
+    "target": {"key": "$$transaction", "value": "action-fake-1"},
+    "parentGroup": [
+      {"key": "$application_id", "value": "app-fake-1"},
+      {"key": "$biz_system_id", "value": "biz-fake-1"}
+    ],
+    "metrics": [
+      {"metric": "response_time", "codeIndex": "avg"}
+    ],
+    "policyId": "policy-fake-1",
+    "policyCheckMode": 1,
+    "product": "SERVER",
+    "alarmEventItems": [
+      {"eventTraceId": "event-fake-1", "startTime": 1000, "endTime": 2000}
+    ]
+  }
+}

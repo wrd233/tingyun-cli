@@ -106,10 +106,9 @@ def test_source_request_builders_use_verified_read_endpoints_and_identity():
         external_uri_request("1061", "1626", time_context),
         trace_exceptions_request({
             "bizSystemId": "1061",
-            "applicationId": "1626",
-            "actionGuid": "ag-1",
+            "treeId": "tree-1",
             "traceId": "trace-1",
-            "actionType": "WEB",
+            "queryTimestamp": 1000,
         }, time_context),
     ]
 
@@ -122,6 +121,7 @@ def test_source_request_builders_use_verified_read_endpoints_and_identity():
     assert requests[5]["path"] == "/nalarm-api/event/metric/chart"
     assert requests[6]["path"] == "/server-api/graph/information"
     assert requests[7]["path"] == "/server-api/webaction/list/errorList"
+    assert requests[9]["body"] == {"treeId": "tree-1", "traceId": "trace-1", "bizSystemId": "1061", "queryTimestamp": 1000, "timePeriod": "10", "endTime": "2026-07-08 08:50", "lang": "zh_CN"}
     assert_read_endpoint(requests[0]["method"], requests[0]["path"])
     for request in requests[1:]:
         assert request["runtime_surface"] == "ADVANCED_SOURCE"

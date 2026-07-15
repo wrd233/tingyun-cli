@@ -117,15 +117,15 @@ validation task:
 - success criteria: preflight、request、summary 与 run_end_time 文件中的 RUN_END_TIME 均非 null 且一致。
 - do not assume: 不得把 null preflight 当作已冻结最终请求快照；不得把 configured sleep 当 observed interval。
 
-## gap_runtime_to_trace_list: transaction/actionItemList actionId 冷启动来源未证明
+## gap_runtime_to_trace_list: SPLIT — actionItemList actionId 来源按入口拆分
 
-- 已知事实：Core Golden Path 已通过 request_overview Candidate -> `trace/detail` -> `callTree` 验证；v1.1 resolver 只接受 Web+WEB -> WEB、Web+TX -> TX、Background+BG -> BG、Web+TX,IF -> TX。`list_recent_requests` / `responseList` -> `trace/detail` -> `callTree` 也已由 `live_evidence_round_2_2026-07-07` 证明，现在只通过正式 Advanced Source response-ranking recipe 进入，不属于 Core；`actionItemList` 仍需要前置 `actionId`。
-- 缺失证据：Application / transaction context 如何获得 `actionItemList` 所需的冷启动 `actionId` 尚未证明；可能来自 URL、页面状态、前置请求或其他 observed READ response，但当前协议不能假设来源。
-- 对能力影响：不影响 v1 Golden Path；`alarm_to_trace` 中通过 transaction/actionItemList 枚举 Trace 的路径仍为 PARTIALLY_VERIFIED；`list_recent_requests` -> Trace 子路径已升级为 VERIFIED。
+- 已知事实：Core Golden Path 与 response ranking -> Trace 路径均已验证。2026-07-15 私有 Capture 进一步对 `$$transaction` 告警入口证明 `detail.target.value`、新标签页 `actionId`、`action/get/{id}` path 与 `actionItemList.actionId` 精确同值；`parentGroup` 中 application/business-system 值也被页面与请求精确消费。该次 `actionItemList` 业务结果为空，但身份血缘成立。
+- 处理：SPLIT。告警入口的 actionId 冷启动子 Gap 已 CLOSED；普通事务页面入口迁移到 `gap_transaction_page_actionitem_cold_start`，继续 STILL_OPEN。
+- 对能力影响：不影响 v1 Golden Path；告警入口可安全形成 Action 上下文，但 EMPTY 结果不证明可枚举 Trace，也不把普通事务入口升级为 VERIFIED。
 - live_evidence_round_1 (2026-07-07): PARTIAL — 4 次只读请求；确认 `actionItemList` 缺少 `actionId` 时失败，`responseList` 无需 `actionId` 但当时目标业务系统无活跃数据。Raw evidence local-only on validation host; durable migration pending。
-- 下一次 Capture 要补什么：从 Application / transaction UI 冷启动进入 `actionItemList`，抓取 `actionId` 的来源（URL 参数、页面状态、前置请求或其他 observed READ response），再进入 Trace。
-- 成功判定条件：证明 `actionItemList` request `actionId` 的上游来源，并证明该路径如何继续进入 trace detail request parameter。
-- 禁止假设：不得用相似 actionId 补 traceGuid；不得把 request_overview Candidate 或 `responseList.content[].actionId` 的成功样本泛化为 transaction/actionItemList 的冷启动来源。
+- 下一次 Capture 要补什么：见新的普通事务页面 Gap；告警入口如需提升到完整 Trace 链，需获得非空 action item 并证明其进入 Trace Detail 的参数。
+- 成功判定条件：告警子 Gap 已满足身份成功条件；非空枚举和普通事务入口分别独立判定。
+- 禁止假设：不得把告警入口的精确同值链泛化为所有 targetType、所有事务页面或稳定 URL 合同。
 - related_capabilities:
   - `resolve_action_context`
   - `list_transactions`
@@ -140,23 +140,37 @@ validation task:
   - `trace_investigation`
 - evidence_seed: `03-alarm-to-trace` request-0380/request-0381 for action context and request-0476/request-0490 for trace detail/callTree.
 
+historical validation record:
+- round_1_finding: `actionItemList` 的 `actionId` 参数为必需项（省略返回 INTERNAL），当时冷启动无法获得。
+- 2026-07-15 finding: `$$transaction` 告警入口已证明精确来源，普通事务页面未证明。
+
+## gap_transaction_page_actionitem_cold_start: STILL_OPEN — 普通事务页面 actionId 冷启动
+
+- 已知事实：告警入口、request_overview Candidate 与 response ranking 各有独立的已验证身份路径；它们不是普通事务页面的通用参数来源。
+- 缺失证据：从普通 Application / transaction 页面冷启动时，`actionItemList.actionId` 的 URL、页面状态或前置 READ response 来源。
+- 对能力影响：`list_transactions` 整体仍 PARTIALLY_VERIFIED；Runtime 不得从名称、相近时间或其他入口复制 actionId。
+- 下一次 Capture 要补什么：新会话直接从普通事务页面进入列表，保存页面 URL、交互顺序、前置请求与 `actionItemList` 请求。
+- 成功判定条件：精确证明普通页面的一个可观察字段被 `actionItemList.actionId` 消费，并得到可判读的业务响应。
+- 禁止假设：不得把 `$$transaction` 告警 target、request_overview Candidate 或 response ranking item 泛化为普通页面 cold start。
+- related_capabilities: `list_transactions`, `resolve_action_context`
+- related_recipes: `scan_business_system`
+
 validation task:
-- goal: 证明 transaction/actionItemList 的冷启动 `actionId` 来源。
-- starting context: `resolve_action_context` 与 `list_transactions` (actionItemList)；v1 request_overview Candidate -> Trace 和 `list_recent_requests` (responseList) -> Trace 均已 VERIFIED，仅作为已排除路径。
-- exploration target: 在 UI 中从 Application / transaction context 进入 webaction/actionItemList，抓取 actionId 的 UI 来源。
-- evidence to capture: request, response, page URL, journey interaction, export if produced.
-- success criteria: 证明 actionItemList 的 actionId 参数来源（URL/前置请求/页面状态/其他 observed READ response）。
-- do not assume: 不得用相似 actionId 补 traceGuid。
-- round_1_finding: `actionItemList` 的 `actionId` 参数为必需项（省略返回 INTERNAL），冷启动无法获得。
+- goal: 证明普通事务页面 `actionItemList.actionId` 的独立冷启动来源。
+- starting context: 普通事务 UI，而不是告警、Candidate 或 response ranking 入口。
+- exploration target: URL / 页面状态 / 前置 READ response -> actionItemList.actionId。
+- evidence to capture: sanitized request, response, page URL, journey interaction.
+- success criteria: exact value lineage plus a business-interpretable response.
+- do not assume: 不得跨入口复制 actionId。
 
-## gap_stack_non_empty: Stack 非空结构未充分证明
+## gap_stack_non_empty: CLOSED — Stack 非空结构与节点身份已证明
 
-- 已知事实：`detail/stackTraces` endpoint 被观察到；Trace Detail response 中也已观察到 embedded exception evidence，且 `data.exceptions[].stack[]` / `data.timeLine.subTimeLines[].errors[].stack[]` 在部分历史 Session 中非空。
-- 缺失证据：代表性非空 `detail/stackTraces` endpoint item 字段覆盖不足。
-- 对能力影响：Stack 分支只能 PARTIALLY_VERIFIED。
-- 下一次 Capture 要补什么：选择含异常栈的 trace，抓取 stackTraces 非空响应。
-- 成功判定条件：获得非空 stack frame 字段并关联 treeId/traceId。
-- 禁止假设：不得从 exception msg 构造 stack。
+- 已知事实：2026-07-15 私有 Capture 中，`detail/exceptions` 在两个独立页面路径均返回非空 exception items 和内嵌 stack；独立 `detail/stackTraces` 对同一 `treeId + traceId` 上下文返回非空 string frame 列表。`treeId` 来自 Call Tree 节点，`traceId` 与 `queryTimestamp` 来自同一 Trace Detail 上下文。
+- 缺失证据：无阻碍本 Gap 成功条件的缺失；跨版本 frame schema 稳定性和批量节点遍历仍未证明，但不属于本 Gap。
+- 对能力影响：Protocol 中 `get_trace_stack` 升为 VERIFIED；Runtime 本轮仍不提升独立 stack source，避免自动节点 fan-out。
+- 下一次 Capture 要补什么：非必需；如要 Runtime promotion，需额外证明明确选点 UX、空节点与多节点的有界语义。
+- 成功判定条件：已满足——非空 frame 且与 exact treeId/traceId 关联。
+- 禁止假设：不得从 exception msg 构造 stack；不得因一次选点成功而自动遍历所有节点。
 - related_capabilities:
   - `get_trace_stack`
   - `list_trace_exceptions`
@@ -167,13 +181,9 @@ validation task:
   - `trace_investigation`
 - evidence_seed: 从已知异常 Trace 先抓 exceptions，再抓 stackTraces 非空响应；Trace Detail embedded stack evidence 可作为候选线索，但不替代独立 stackTraces endpoint。
 
-validation task:
-- goal: Stack 非空结构未充分证明
-- starting context: `list_trace_exceptions` -> `get_trace_stack`，重点看 exceptions 与 stackTraces 的共同 trace context。
-- exploration target: 选择含异常栈的 trace，抓取 stackTraces 非空响应。
-- evidence to capture: request, response, page URL, journey interaction, export if produced.
-- success criteria: 获得非空 stack frame 字段并关联 treeId/traceId。
-- do not assume: 不得从 exception msg 构造 stack。
+closure record:
+- evidence level: LIVE_VERIFIED for non-empty endpoint shape; CROSS_RUN_VERIFIED for non-empty exceptions across two independent Capture paths.
+- runtime note: CLOSED Research Gap does not imply Runtime-promoted.
 
 ## gap_database_nosql_mq_metrics: 数据库/NoSQL/MQ 指标深度不均
 
@@ -261,9 +271,9 @@ validation task:
 - evidence to capture: request, response, page URL, journey interaction, export if produced.
 - success criteria: 每个动态 ID 和恢复 payload 均有证据。
 - do not assume: 不得设计 dry-run/rollback 执行框架。
-## gap_dubbo_provider_trace_action_type: DubboProvider TX,IF direct Trace actionType 未证明
+## gap_dubbo_provider_trace_action_type: STILL_OPEN — DubboProvider TX,IF direct Trace actionType 未证明
 
-- 已知事实：Web transaction + `TX,IF` 使用 `actionType=TX` 有成功 Trace 证据；私有七日证据中 DubboProvider + `TX,IF` 沿用 TX 时失败，Call Tree 内 Dubbo span 可显示 IF。
+- 已知事实：Web transaction + `TX,IF` 使用 `actionType=TX` 有成功 Trace 证据；私有七日证据中 DubboProvider + `TX,IF` 沿用 TX 时失败，Call Tree 内 Dubbo span 可显示 IF。2026-07-15 Capture 通过 `trace_current_overview.content[].id -> detail.traceId` 找到 DubboProvider Trace，但该 list-driven 路径不需要 direct actionType resolver。
 - 缺失证据：同一 DubboProvider Candidate 对 direct `actionType=IF` 的受控只读成功样本。
 - 对能力影响：`DUBBO_PROVIDER_INTERFACE + TX,IF` 返回 `UNRESOLVED_TRACE_ACTION_TYPE`，不暴露 `investigate_trace`；建议从已验证 parent Web transaction 进入 Trace/Call Tree，但不自动执行。
 - 下一次 Capture 要补什么：在具备凭据和 exact historical Candidate 时，串行执行至多一个 `actionType=IF` focused READ 请求并保存 request/response lineage。
@@ -276,6 +286,49 @@ validation task:
   - `ep_post_server_api_action_trace_detail`
 - related_recipes:
   - `alarm_driven_investigation_reliability`
+
+## gap_observed_url_reload_stability: NEW_GAP — 页面 URL 仅观察，未验证稳定性
+
+- 已知事实：2026-07-15 Capture 观察到告警、事务、链路追踪与错误分析页面的新标签页 URL，且部分参数与后续请求精确同值。
+- 缺失证据：Reload Verify、独立 New Tab Verify 与 Cross-session Verify。
+- 对能力影响：URL 只能标记 OBSERVED，不能作为 VERIFIED URL、稳定报告链接或 Runtime navigation action。
+- 下一次 Capture 要补什么：对一个脱敏后的精确页面路由依次执行复制地址、重载、新标签页打开与新会话打开，并抓取只读请求。
+- 成功判定条件：至少独立会话复现相同 route 参数语义，且重载后目标与请求身份保持一致。
+- 禁止假设：页面连续跳转或一次点击成功不等于稳定 URL 合同。
+- related_capabilities: `read_alarm_event_detail`, `search_trace_candidates`, `get_trace_detail`
+- related_recipes: `alarm_to_trace`, `trace_search_to_detail`
+
+## gap_error_analysis_error_to_trace: NEW_GAP — 聚合 error 分支到 Trace 身份未证明
+
+- 已知事实：`exceptionStatistics.content[]` 提供 traceGuid 等身份，并被 Trace Detail 精确消费；聚合 error/exception list 与 detail 用于发现。
+- 缺失证据：纯 error 聚合记录如何选择代表样本并获得稳定 trace identity。
+- 对能力影响：exception branch 可 VERIFIED；generic error -> Trace 仍不能自动化。
+- 下一次 Capture 要补什么：选择非 exception 的 error 聚合项，记录点击、代表样本接口与 Trace Detail 请求。
+- 成功判定条件：聚合 error identity -> representative record -> exact trace parameter 的精确血缘。
+- 禁止假设：不得因时间接近、errorName 相同或页面连续跳转而连接 Trace。
+- related_capabilities: `analyze_transaction_errors`, `get_trace_detail`
+- related_recipes: `alarm_to_trace`
+
+## gap_error_export_task_case_semantics: NEW_GAP — 导出任务大小写路径与读取合同
+
+- 已知事实：`errorExport/creatTask` 在 Capture 中创建服务端任务，属于 WRITE；任务列表只观察到大小写敏感形式 `errorExport/List`，随后发生文件下载。
+- 缺失证据：既有 documented lowercase `/list` 与 observed uppercase `/List` 是否为同一版本合同，以及 task 状态到下载 URL 的稳定字段关系。
+- 对能力影响：创建任务明确不进入 READ Runtime；任务列表和下载也不作为 fallback。
+- 下一次 Capture 要补什么：只在授权测试环境由用户显式触发一次导出，保存创建前后任务列表和下载字段；不要探测未观察路径。
+- 成功判定条件：精确证明 path case、task identity、状态与下载的只读回读关系。
+- 禁止假设：最终下载 Excel 不会把创建任务重新分类为 READ；不得自动改写 path case。
+- related_capabilities: `analyze_transaction_errors`
+
+## gap_alarm_read_state_readback: NEW_GAP — 告警已读状态缺少前后回读
+
+- 已知事实：历史与 2026-07-15 Capture 共观察到七次 `POST /nalarm-api/event/read`，均携带事件 ID 与时间上下文并返回成功的 null-data acknowledgement；本轮两次调用紧随告警详情打开。基于 UI 时序、endpoint 语义与安全优先原则，合同分类为 WRITE。
+- 缺失证据：调用前后的 `readFlag`（或等价字段）精确变化，以及重复调用的幂等性。
+- 对能力影响：该 Endpoint 从详情读取 Capability 移除，禁止进入 Runtime READ Surface；告警列表/详情本身不受影响。
+- 下一次 Capture 要补什么：在授权测试事件上记录列表/详情中的已读字段，打开详情后重新读取同一事件，并保存前后值；不要由 CLI 主动触发。
+- 成功判定条件：同一 event identity 的 before/after 状态值证明 mark-read 语义，并确认重复打开是否幂等。
+- 禁止假设：路径名含 `read` 不代表 READ access；成功 null response 不能单独证明具体状态值。
+- related_capabilities: `list_alarm_events`, `read_alarm_event_detail`
+- related_endpoints: `ep_post_nalarm_api_event_read`
 
 ## gap_application_instances_http_500: application-instances 同形请求 HTTP 500
 

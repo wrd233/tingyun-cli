@@ -34,19 +34,226 @@
     "composition": "local-only explicit manifest compiler and validator",
     "excluded_access": ["WRITE", "UNKNOWN"]
   },
+  "capture_integration_2026_07_15": {
+    "source": "two private Capture sessions inspected locally; Raw archive and extracted files are not committed",
+    "scope": {
+      "session_count": 2,
+      "network_records": 502,
+      "unique_method_paths": 76,
+      "new_exact_service_paths": 10
+    },
+    "evidence_levels": {
+      "OBSERVED": "seen in one recorded UI journey without reload or cross-session stability proof",
+      "VALUE_MATCHED": "the same value was compared at two observable wire or navigation positions",
+      "LIVE_VERIFIED": "the recorded request shape returned a non-error business envelope and the stated non-empty shape",
+      "CROSS_RUN_VERIFIED": "the same relationship is independently supported by earlier evidence and this Capture",
+      "UNRESOLVED": "a required identity or stability relationship is still missing"
+    },
+    "endpoint_contract_deltas": [
+      {
+        "method": "POST",
+        "path": "/nalarm-api/query/event/pageList",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "json",
+        "body_parameters": ["pageNumber", "pageSize", "searchText", "timePeriod", "endTime"],
+        "response_shape": "data.content[] plus pageNumber/pageSize/totalElements; items include event id/status/type/target/application/time fields",
+        "limit": "event-center list is distinct from /nalarm-api/event/traceList and is not Runtime-promoted"
+      },
+      {
+        "method": "POST",
+        "path": "/nalarm-api/query/initView",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "form",
+        "body_parameters": ["lang"],
+        "response_shape": "initial event-center filter/view metadata",
+        "limit": "event-center initialization only; not Runtime-promoted"
+      },
+      {
+        "method": "POST",
+        "path": "/nalarm-api/query/event/count",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "form",
+        "body_parameters": ["pageNumber", "pageSize", "searchText", "timePeriod", "endTime", "lang"],
+        "response_shape": "event-center count buckets",
+        "limit": "supporting event-center summary only"
+      },
+      {
+        "method": "POST",
+        "path": "/nalarm-api/query/event/chartOfStatus",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "form",
+        "body_parameters": ["pageNumber", "pageSize", "searchText", "timePeriod", "endTime", "lang"],
+        "response_shape": "status chart series/yAxis",
+        "limit": "supporting event-center chart only"
+      },
+      {
+        "method": "POST",
+        "path": "/nalarm-api/query/event/chartOfDataSource",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "form",
+        "body_parameters": ["pageNumber", "pageSize", "searchText", "timePeriod", "endTime", "lang"],
+        "response_shape": "data-source chart series/yAxis",
+        "limit": "supporting event-center chart only"
+      },
+      {
+        "method": "POST",
+        "path": "/nalarm-api/event/traceList",
+        "access": "READ",
+        "evidence_level": "CROSS_RUN_VERIFIED",
+        "body_kind": "form",
+        "body_parameters": ["pageNumber", "pageSize", "timePeriod", "endTime", "eventType", "frequent", "lang", "ids?", "idsMode?"],
+        "response_shape": "data.content[] plus totalElements; content has id, target, parentGroup, status, time, policy and metric context",
+        "variants": ["ordinary alarm list", "event-id-filtered search using ids and idsMode"]
+      },
+      {
+        "method": "POST",
+        "path": "/nalarm-api/event/trace",
+        "access": "READ",
+        "evidence_level": "VALUE_MATCHED",
+        "body_kind": "form",
+        "body_parameters": ["id", "timePeriod", "endTime", "lang"],
+        "response_shape": "data.target, parentGroup key/value array, metrics[], alarmEventItems[] and policy context",
+        "parameter_lineage": [
+          "data.parentGroup[$biz_system_id/$application_id].value -> transaction overview URL -> actionItemList bizSystemId/applicationId",
+          "data.target.key=$$transaction and data.target.value -> transaction overview URL actionId -> action/get path id -> actionItemList actionId"
+        ],
+        "limit": "proves the alarm-entry branch only; ordinary transaction-page cold start remains unresolved"
+      },
+      {
+        "method": "POST",
+        "path": "/nalarm-api/event/metric/chart",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "json",
+        "body_parameters": ["id", "metric", "codeIndex", "policyId", "policyCheckMode", "product", "targetType", "eventItems", "timePeriod", "endTime"],
+        "parameter_lineage": [
+          "detail.metrics[].metric/codeIndex -> request metric/codeIndex",
+          "detail target.key -> request targetType",
+          "detail alarmEventItems exact array -> request eventItems"
+        ],
+        "response_shape": "data.chart has two non-empty series in this sample; data.events is non-empty",
+        "limit": "one successful alarm sample does not prove every metric semantic or unit"
+      },
+      {
+        "method": "POST",
+        "path": "/nalarm-api/event/read",
+        "access": "WRITE",
+        "evidence_level": "OBSERVED",
+        "body_kind": "form",
+        "body_parameters": ["id", "timePeriod", "endTime", "lang"],
+        "response_shape": "successful null-data acknowledgement",
+        "safety_classification": "the UI invokes it after opening an alarm and the operation marks read state; state-changing semantics override the read-like path name",
+        "limit": "no before/after readFlag readback was captured; Runtime execution remains forbidden"
+      },
+      {
+        "method": "POST",
+        "path": "/server-api/graph/suggestions",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "json",
+        "body_parameters": ["key", "labels?", "type?", "value?", "timePeriod", "endTime", "lang"],
+        "variants": ["common suggestion", "request suggestion"],
+        "response_shape": "data[] items contain key/suggestId/type/value",
+        "limit": "suggestions discover filters; they are not Trace evidence identity"
+      },
+      {
+        "method": "POST",
+        "path": "/server-api/graph/query/overview?trace_current_overview",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "json",
+        "body_parameters": ["action", "beginTime", "endTime", "labels", "metric", "order", "page", "timePeriod", "zoomTime", "lang"],
+        "response_shape": "data.data.content[] with id, traceGuid, actionGuid, actionId/actionType/actionName, bizSystemId/applicationId/instanceId, respTime, errorCount/errorName and status",
+        "parameter_lineage": "content[].id -> /server-api/action/trace/detail request traceId (four exact matches); detail actionGuid + data.id -> callTree",
+        "limit": "Trace-list-driven path is independent of Candidate-direct actionType resolution"
+      },
+      {
+        "method": "POST",
+        "path": "/server-api/action/trace/detail",
+        "access": "READ",
+        "evidence_level": "CROSS_RUN_VERIFIED",
+        "variants": [
+          "transaction branch: bizSystemId/applicationId/actionType/traceGuid/queryTimestamp/time context",
+          "trace-list branch: bizSystemId/traceId/queryTimestamp/time context with optional filterList"
+        ],
+        "response_shape": "non-empty Trace detail with response data.id, actionGuid, timestamp, timeline/topology and embedded exceptions/stack in successful samples; treeNode is returned by callTree, not detail",
+        "limit": "the trace-list variant does not prove DubboProvider direct TX or IF resolver"
+      },
+      {
+        "method": "POST",
+        "path": "/server-api/action/trace/detail/exceptions",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "form",
+        "body_parameters": ["treeId", "traceId", "bizSystemId", "queryTimestamp", "timePeriod", "endTime", "lang"],
+        "parameter_lineage": "treeId from callTree treeNode identity; traceId from detail response data.id; queryTimestamp from detail timestamp/page context",
+        "response_shape": "data[] is non-empty in eleven requests across both sessions; item fields include type/name/msg/error/highest/seq/stack",
+        "runtime_correction": "the previous Runtime recipe used applicationId/actionGuid/actionType and omitted treeId/queryTimestamp; it must require exact trace-node identity"
+      },
+      {
+        "method": "POST",
+        "path": "/server-api/action/trace/detail/stackTraces",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "form",
+        "body_parameters": ["treeId", "traceId", "bizSystemId", "queryTimestamp", "timePeriod", "endTime", "lang"],
+        "parameter_lineage": "same treeId and traceId as a non-empty exceptions request",
+        "response_shape": "data is a non-empty array of 101 string frames in the captured sample",
+        "limit": "research-only; no Runtime promotion follows automatically"
+      },
+      {
+        "method": "POST",
+        "path": "/server-api/error/smart/exceptionStatistics/list",
+        "access": "READ",
+        "evidence_level": "VALUE_MATCHED",
+        "response_shape": "content[] includes traceGuid/actionGuid and action/application/business/instance/error identities",
+        "parameter_lineage": "content[].traceGuid -> trace/detail request traceGuid; actionType/applicationId/bizSystemId also value-match the detail request",
+        "limit": "the aggregate error list and errorAndException/detail do not themselves expose Trace identity"
+      },
+      {
+        "method": "POST",
+        "path": "/server-api/error/smart/errorExport/creatTask",
+        "access": "WRITE",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "json",
+        "body_parameters": ["beginTime", "endTime", "timePeriod", "bizSystemId", "bizSystemName", "errorLevel", "exportColumns", "filterParams"],
+        "response_shape": "successful task-creation message observed twice",
+        "limit": "creates server-side state and remains forbidden to Runtime even though the eventual file download is read-like"
+      },
+      {
+        "method": "POST",
+        "path": "/server-api/error/smart/errorExport/List",
+        "access": "READ",
+        "evidence_level": "LIVE_VERIFIED",
+        "body_kind": "form",
+        "body_parameters": ["lang"],
+        "response_shape": "data.content[] task records with status, time range, file format/name and filter conditions",
+        "limit": "uppercase List is the observed path; it is not declared equivalent to documented lowercase /list"
+      }
+    ],
+    "navigation": {
+      "transaction_overview_url": "OBSERVED in a new tab with exact ID matches; reload and cross-session verification not performed",
+      "trace_detail_urls": "OBSERVED only; no stable report-link claim"
+    }
+  },
   "coverage": {
-    "sessions_processed": "6/6",
-    "session_files_inspected": "2943/2943",
-    "network_records_scanned": "1493/1493",
-    "observed_method_path_all": 216,
-    "observed_service_method_path_catalogued": 202,
+    "sessions_processed": "8/8",
+    "session_files_inspected": "5246/5246",
+    "network_records_scanned": "1995/1995",
+    "observed_method_path_all": 226,
+    "observed_service_method_path_catalogued": 212,
     "static_or_ui_records_scanned_not_catalogued": 47,
     "documented_endpoint_method_path_catalogued": 224,
     "official_documents_inventoried": "2/2",
     "export_files_inspected": "12/12",
     "export_sheets_inspected": 12,
-    "catalogued_endpoint_entries": 390,
-    "identified_variants": 431
+    "catalogued_endpoint_entries": 400,
+    "identified_variants": 442
   },
   "classification_axes": {
     "access": [
@@ -68,6 +275,67 @@
     ]
   },
   "endpoints": [
+    {
+      "id": "ep_post_nalarm_api_query_initview", "method": "POST", "path": "/nalarm-api/query/initView", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 1, "sessions": {"private_capture_2026_07_15": 1}, "status_codes": {"200": 1}, "resource_types": {"xhr": 1}},
+      "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [],
+      "variants": [{"id": "variant_default", "discriminant": "default", "observed_count": 1, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [{"name": "lang", "observed_types": ["string"], "occurrences": 1}], "json_body_fields": [], "body_kinds": {"form": 1}, "content_types": ["application/x-www-form-urlencoded"]},
+      "parameter_lineage": [], "response": {"content_types": ["application/json"], "body_kinds": {"json": 1}, "observed_fields": [{"path": "data", "types": ["object"]}], "business_success_observed": true},
+      "normalized_mapping": [], "pagination": {"observed_parameters": []}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": []}, "time_parameters": {"observed_parameters": []}, "deep_link": {"status": "not_applicable"},
+      "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only"}]
+    },
+    {
+      "id": "ep_post_nalarm_api_query_event_count", "method": "POST", "path": "/nalarm-api/query/event/count", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 2, "sessions": {"private_capture_2026_07_15": 2}, "status_codes": {"200": 2}, "resource_types": {"xhr": 2}}, "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [],
+      "variants": [{"id": "variant_default", "discriminant": "default", "observed_count": 2, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [{"name": "pageNumber", "observed_types": ["string"], "occurrences": 2}, {"name": "pageSize", "observed_types": ["string"], "occurrences": 2}, {"name": "searchText", "observed_types": ["string"], "occurrences": 2}, {"name": "timePeriod", "observed_types": ["string"], "occurrences": 2}, {"name": "endTime", "observed_types": ["string"], "occurrences": 2}, {"name": "lang", "observed_types": ["string"], "occurrences": 2}], "json_body_fields": [], "body_kinds": {"form": 2}, "content_types": ["application/x-www-form-urlencoded"]},
+      "parameter_lineage": [], "response": {"content_types": ["application/json"], "body_kinds": {"json": 2}, "observed_fields": [{"path": "data", "types": ["object", "array"]}], "business_success_observed": true}, "normalized_mapping": [], "pagination": {"observed_parameters": ["pageNumber", "pageSize"]}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": ["searchText"]}, "time_parameters": {"observed_parameters": ["timePeriod", "endTime"]}, "deep_link": {"status": "not_applicable"}, "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only"}]
+    },
+    {
+      "id": "ep_post_nalarm_api_query_event_chartofstatus", "method": "POST", "path": "/nalarm-api/query/event/chartOfStatus", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 2, "sessions": {"private_capture_2026_07_15": 2}, "status_codes": {"200": 2}, "resource_types": {"xhr": 2}}, "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [], "variants": [{"id": "variant_default", "discriminant": "default", "observed_count": 2, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [{"name": "pageNumber", "observed_types": ["string"], "occurrences": 2}, {"name": "pageSize", "observed_types": ["string"], "occurrences": 2}, {"name": "searchText", "observed_types": ["string"], "occurrences": 2}, {"name": "timePeriod", "observed_types": ["string"], "occurrences": 2}, {"name": "endTime", "observed_types": ["string"], "occurrences": 2}, {"name": "lang", "observed_types": ["string"], "occurrences": 2}], "json_body_fields": [], "body_kinds": {"form": 2}, "content_types": ["application/x-www-form-urlencoded"]},
+      "parameter_lineage": [], "response": {"content_types": ["application/json"], "body_kinds": {"json": 2}, "observed_fields": [{"path": "data.series", "types": ["array"]}, {"path": "data.yAxis", "types": ["object", "array"]}], "business_success_observed": true}, "normalized_mapping": [], "pagination": {"observed_parameters": ["pageNumber", "pageSize"]}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": ["searchText"]}, "time_parameters": {"observed_parameters": ["timePeriod", "endTime"]}, "deep_link": {"status": "not_applicable"}, "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only"}]
+    },
+    {
+      "id": "ep_post_nalarm_api_query_event_chartofdatasource", "method": "POST", "path": "/nalarm-api/query/event/chartOfDataSource", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 2, "sessions": {"private_capture_2026_07_15": 2}, "status_codes": {"200": 2}, "resource_types": {"xhr": 2}}, "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [], "variants": [{"id": "variant_default", "discriminant": "default", "observed_count": 2, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [{"name": "pageNumber", "observed_types": ["string"], "occurrences": 2}, {"name": "pageSize", "observed_types": ["string"], "occurrences": 2}, {"name": "searchText", "observed_types": ["string"], "occurrences": 2}, {"name": "timePeriod", "observed_types": ["string"], "occurrences": 2}, {"name": "endTime", "observed_types": ["string"], "occurrences": 2}, {"name": "lang", "observed_types": ["string"], "occurrences": 2}], "json_body_fields": [], "body_kinds": {"form": 2}, "content_types": ["application/x-www-form-urlencoded"]},
+      "parameter_lineage": [], "response": {"content_types": ["application/json"], "body_kinds": {"json": 2}, "observed_fields": [{"path": "data.series", "types": ["array"]}, {"path": "data.yAxis", "types": ["object", "array"]}], "business_success_observed": true}, "normalized_mapping": [], "pagination": {"observed_parameters": ["pageNumber", "pageSize"]}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": ["searchText"]}, "time_parameters": {"observed_parameters": ["timePeriod", "endTime"]}, "deep_link": {"status": "not_applicable"}, "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only"}]
+    },
+    {
+      "id": "ep_post_nalarm_api_query_event_pagelist", "method": "POST", "path": "/nalarm-api/query/event/pageList", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 2, "sessions": {"private_capture_2026_07_15": 2}, "status_codes": {"200": 2}, "resource_types": {"xhr": 2}}, "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [], "variants": [{"id": "variant_default", "discriminant": "default", "observed_count": 2, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [{"name": "pageNumber", "observed_types": ["integer"], "occurrences": 2}, {"name": "pageSize", "observed_types": ["integer"], "occurrences": 2}, {"name": "searchText", "observed_types": ["string"], "occurrences": 2}, {"name": "timePeriod", "observed_types": ["integer"], "occurrences": 2}, {"name": "endTime", "observed_types": ["string"], "occurrences": 2}], "json_body_fields": [{"path": "pageNumber", "types": ["integer"]}, {"path": "pageSize", "types": ["integer"]}, {"path": "searchText", "types": ["string"]}, {"path": "timePeriod", "types": ["integer"]}, {"path": "endTime", "types": ["string"]}], "body_kinds": {"json": 2}, "content_types": ["application/json"]},
+      "parameter_lineage": [], "response": {"content_types": ["application/json"], "body_kinds": {"json": 2}, "observed_fields": [{"path": "data.content", "types": ["array"]}, {"path": "data.totalElements", "types": ["integer"]}], "business_success_observed": true}, "normalized_mapping": [], "pagination": {"observed_parameters": ["pageNumber", "pageSize", "totalElements"]}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": ["searchText"]}, "time_parameters": {"observed_parameters": ["timePeriod", "endTime"]}, "deep_link": {"status": "not_applicable"}, "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only"}]
+    },
+    {
+      "id": "ep_post_nalarm_api_event_trace_resolvechartstate", "method": "POST", "path": "/nalarm-api/event/trace/resolveChartState", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 5, "sessions": {"private_capture_2026_07_15": 5}, "status_codes": {"200": 5}, "resource_types": {"xhr": 5}}, "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [], "variants": [{"id": "variant_default", "discriminant": "default", "observed_count": 5, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [{"name": "pageNumber", "observed_types": ["string"], "occurrences": 5}, {"name": "pageSize", "observed_types": ["string"], "occurrences": 5}, {"name": "timePeriod", "observed_types": ["string"], "occurrences": 5}, {"name": "endTime", "observed_types": ["string"], "occurrences": 5}, {"name": "eventType", "observed_types": ["string"], "occurrences": 5}, {"name": "frequent", "observed_types": ["string"], "occurrences": 5}, {"name": "lang", "observed_types": ["string"], "occurrences": 5}], "json_body_fields": [], "body_kinds": {"form": 5}, "content_types": ["application/x-www-form-urlencoded"]},
+      "parameter_lineage": [], "response": {"content_types": ["application/json"], "body_kinds": {"json": 5}, "observed_fields": [{"path": "data.series", "types": ["array"]}, {"path": "data.yAxis", "types": ["object", "array"]}], "business_success_observed": true}, "normalized_mapping": [], "pagination": {"observed_parameters": ["pageNumber", "pageSize"]}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": ["eventType", "frequent"]}, "time_parameters": {"observed_parameters": ["timePeriod", "endTime"]}, "deep_link": {"status": "not_applicable"}, "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only"}]
+    },
+    {
+      "id": "ep_get_server_api_action_get_actionid", "method": "GET", "path": "/server-api/action/get/{actionId}", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 1, "sessions": {"private_capture_2026_07_15": 1}, "status_codes": {"200": 1}, "resource_types": {"xhr": 1}}, "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [], "variants": [{"id": "variant_path_action_id", "discriminant": "path actionId", "observed_count": 1, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [], "json_body_fields": [], "body_kinds": {}, "content_types": []}, "parameter_lineage": [{"source": "alarm detail target.value when target.key=$$transaction", "target": "path actionId", "evidence_level": "VALUE_MATCHED"}], "response": {"content_types": ["application/json"], "body_kinds": {"json": 1}, "observed_fields": [{"path": "data", "types": ["object"]}], "business_success_observed": true}, "normalized_mapping": [], "pagination": {"observed_parameters": []}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": []}, "time_parameters": {"observed_parameters": []}, "deep_link": {"status": "observed_only"}, "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only"}]
+    },
+    {
+      "id": "ep_get_server_api_action_alias_actionid", "method": "GET", "path": "/server-api/action/alias/{actionId}", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 1, "sessions": {"private_capture_2026_07_15": 1}, "status_codes": {"200": 1}, "resource_types": {"xhr": 1}}, "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [], "variants": [{"id": "variant_path_action_id", "discriminant": "path actionId", "observed_count": 1, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [], "json_body_fields": [], "body_kinds": {}, "content_types": []}, "parameter_lineage": [{"source": "alarm detail target.value when target.key=$$transaction", "target": "path actionId", "evidence_level": "VALUE_MATCHED"}], "response": {"content_types": ["application/json"], "body_kinds": {"json": 1}, "observed_fields": [{"path": "data", "types": ["object", "string"]}], "business_success_observed": true}, "normalized_mapping": [], "pagination": {"observed_parameters": []}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": []}, "time_parameters": {"observed_parameters": []}, "deep_link": {"status": "observed_only"}, "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only"}]
+    },
+    {
+      "id": "ep_get_server_api_setting_action_is_followed_actionid", "method": "GET", "path": "/server-api/setting/action/is/followed/{actionId}", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 1, "sessions": {"private_capture_2026_07_15": 1}, "status_codes": {"200": 1}, "resource_types": {"xhr": 1}}, "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [], "variants": [{"id": "variant_path_action_id", "discriminant": "path actionId", "observed_count": 1, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [], "json_body_fields": [], "body_kinds": {}, "content_types": []}, "parameter_lineage": [{"source": "alarm detail target.value when target.key=$$transaction", "target": "path actionId", "evidence_level": "VALUE_MATCHED"}], "response": {"content_types": ["application/json"], "body_kinds": {"json": 1}, "observed_fields": [{"path": "data", "types": ["boolean", "object"]}], "business_success_observed": true}, "normalized_mapping": [], "pagination": {"observed_parameters": []}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": []}, "time_parameters": {"observed_parameters": []}, "deep_link": {"status": "observed_only"}, "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only"}]
+    },
+    {
+      "id": "ep_post_server_api_error_smart_errorexport_list_observed_case", "method": "POST", "path": "/server-api/error/smart/errorExport/List", "access": "READ", "role": "SUPPORTING", "verification": "VERIFIED",
+      "observed_scope": {"count": 1, "sessions": {"private_capture_2026_07_15": 1}, "status_codes": {"200": 1}, "resource_types": {"xhr": 1}}, "environment_scope": {"observed_target_origin": "redacted_internal_origin", "product_version": "unknown"}, "official_docs": [], "variants": [{"id": "variant_observed_uppercase_list", "discriminant": "path case", "observed_count": 1, "query_keys": [], "evidence": []}],
+      "request": {"query_parameters": [], "body_parameters": [{"name": "lang", "observed_types": ["string"], "occurrences": 1}], "json_body_fields": [], "body_kinds": {"form": 1}, "content_types": ["application/x-www-form-urlencoded"]}, "parameter_lineage": [], "response": {"content_types": ["application/json"], "body_kinds": {"json": 1}, "observed_fields": [{"path": "data.content", "types": ["array"]}], "business_success_observed": true}, "normalized_mapping": [], "pagination": {"observed_parameters": []}, "sorting": {"observed_parameters": []}, "filters": {"observed_parameters": []}, "time_parameters": {"observed_parameters": []}, "deep_link": {"status": "not_applicable"}, "evidence": [{"source_type": "private_capture", "capture": "2026-07-15", "storage": "local_only", "limit": "not equivalent to documented lowercase /list"}]
+    },
     {
       "id": "ep_post_alarm_api_api_event_getwarnandcriticalcounts",
       "method": "POST",
@@ -7263,19 +7531,21 @@
       "id": "ep_post_nalarm_api_event_read",
       "method": "POST",
       "path": "/nalarm-api/event/read",
-      "access": "READ",
+      "access": "WRITE",
       "role": "CORE",
       "verification": "VERIFIED",
       "observed_scope": {
-        "count": 5,
+        "count": 7,
         "sessions": {
-          "03-alarm-to-trace": 5
+          "03-alarm-to-trace": 5,
+          "private_capture_trace_journey_2026_07_15": 1,
+          "private_capture_error_journey_2026_07_15": 1
         },
         "status_codes": {
-          "200": 5
+          "200": 7
         },
         "resource_types": {
-          "xhr": 5
+          "xhr": 7
         }
       },
       "environment_scope": {
@@ -7287,7 +7557,7 @@
         {
           "id": "variant_default",
           "discriminant": "default",
-          "observed_count": 5,
+          "observed_count": 7,
           "query_keys": [],
           "evidence": [
             {
@@ -7322,33 +7592,33 @@
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 7
           },
           {
             "name": "id",
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 7
           },
           {
             "name": "lang",
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 7
           },
           {
             "name": "timePeriod",
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 7
           }
         ],
         "json_body_fields": [],
         "body_kinds": {
-          "form": 5
+          "form": 7
         },
         "content_types": [
           "application/x-www-form-urlencoded"
@@ -7360,7 +7630,7 @@
           "application/json"
         ],
         "body_kinds": {
-          "json": 5
+          "json": 7
         },
         "observed_fields": [
           {
@@ -7447,6 +7717,13 @@
           "request_ref": "request-0354",
           "request_body_ref": "evidence/requests/request-0354-request-ea0269065b2d.txt",
           "response_body_ref": "evidence/responses/request-0354-response-3f75d1300496.json"
+        },
+        {
+          "source_type": "private_capture",
+          "capture": "2026-07-15",
+          "storage": "local_only",
+          "observed_count": 2,
+          "role": "UI-triggered mark-read acknowledgements; no before/after state readback"
         }
       ]
     },
@@ -17205,16 +17482,18 @@
       "role": "CORE",
       "verification": "VERIFIED",
       "observed_scope": {
-        "count": 5,
+        "count": 16,
         "sessions": {
           "02-application-deep-dive": 2,
-          "03-alarm-to-trace": 3
+          "03-alarm-to-trace": 3,
+          "private_capture_trace_journey_2026_07_15": 7,
+          "private_capture_error_journey_2026_07_15": 4
         },
         "status_codes": {
-          "200": 5
+          "200": 16
         },
         "resource_types": {
-          "xhr": 5
+          "xhr": 16
         }
       },
       "environment_scope": {
@@ -17226,7 +17505,7 @@
         {
           "id": "variant_default",
           "discriminant": "default",
-          "observed_count": 5,
+          "observed_count": 16,
           "query_keys": [],
           "evidence": [
             {
@@ -17261,54 +17540,54 @@
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 16
           },
           {
             "name": "endTime",
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 16
           },
           {
             "name": "lang",
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 16
           },
           {
             "name": "queryTimestamp",
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 16
           },
           {
             "name": "timePeriod",
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 16
           },
           {
             "name": "traceId",
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 16
           },
           {
             "name": "treeId",
             "observed_types": [
               "string"
             ],
-            "occurrences": 5
+            "occurrences": 16
           }
         ],
         "json_body_fields": [],
         "body_kinds": {
-          "form": 5
+          "form": 16
         },
         "content_types": [
           "application/x-www-form-urlencoded"
@@ -17320,7 +17599,7 @@
           "application/json"
         ],
         "body_kinds": {
-          "json": 5
+          "json": 16
         },
         "observed_fields": [
           {
@@ -17397,6 +17676,13 @@
           "request_ref": "request-0494",
           "request_body_ref": "evidence/requests/request-0494-request-2f8ead45dab6.txt",
           "response_body_ref": "evidence/responses/request-0494-response-e21b7907425c.json"
+        },
+        {
+          "source_type": "private_capture",
+          "capture": "2026-07-15",
+          "storage": "local_only",
+          "observed_count": 11,
+          "role": "node-scoped non-empty exception and stack shape; no raw refs committed"
         }
       ]
     },
@@ -17778,15 +18064,16 @@
       "role": "CORE",
       "verification": "VERIFIED",
       "observed_scope": {
-        "count": 2,
+        "count": 3,
         "sessions": {
-          "03-alarm-to-trace": 2
+          "03-alarm-to-trace": 2,
+          "private_capture_error_journey_2026_07_15": 1
         },
         "status_codes": {
-          "200": 2
+          "200": 3
         },
         "resource_types": {
-          "xhr": 2
+          "xhr": 3
         }
       },
       "environment_scope": {
@@ -17798,7 +18085,7 @@
         {
           "id": "variant_default",
           "discriminant": "default",
-          "observed_count": 2,
+          "observed_count": 3,
           "query_keys": [],
           "evidence": [
             {
@@ -17826,54 +18113,54 @@
             "observed_types": [
               "string"
             ],
-            "occurrences": 2
+            "occurrences": 3
           },
           {
             "name": "endTime",
             "observed_types": [
               "string"
             ],
-            "occurrences": 2
+            "occurrences": 3
           },
           {
             "name": "lang",
             "observed_types": [
               "string"
             ],
-            "occurrences": 2
+            "occurrences": 3
           },
           {
             "name": "queryTimestamp",
             "observed_types": [
               "string"
             ],
-            "occurrences": 2
+            "occurrences": 3
           },
           {
             "name": "timePeriod",
             "observed_types": [
               "string"
             ],
-            "occurrences": 2
+            "occurrences": 3
           },
           {
             "name": "traceId",
             "observed_types": [
               "string"
             ],
-            "occurrences": 2
+            "occurrences": 3
           },
           {
             "name": "treeId",
             "observed_types": [
               "string"
             ],
-            "occurrences": 2
+            "occurrences": 3
           }
         ],
         "json_body_fields": [],
         "body_kinds": {
-          "form": 2
+          "form": 3
         },
         "content_types": [
           "application/x-www-form-urlencoded"
@@ -17885,7 +18172,7 @@
           "application/json"
         ],
         "body_kinds": {
-          "json": 2
+          "json": 3
         },
         "observed_fields": [
           {
@@ -17946,6 +18233,13 @@
           "request_ref": "request-0261",
           "request_body_ref": "evidence/requests/request-0261-request-6a75c2eb9c3d.txt",
           "response_body_ref": "evidence/responses/request-0261-response-d634481e4caa.json"
+        },
+        {
+          "source_type": "private_capture",
+          "capture": "2026-07-15",
+          "storage": "local_only",
+          "observed_count": 1,
+          "role": "non-empty string frame list bound to one exact treeId and traceId"
         }
       ]
     },
@@ -37372,15 +37666,15 @@
       "path": "/server-api/error/smart/errorExport/creatTask",
       "access": "WRITE",
       "role": "CORE",
-      "verification": "DOCUMENTED_ONLY",
+      "verification": "VERIFIED",
       "observed_scope": {
-        "count": 0,
-        "sessions": {},
-        "status_codes": {},
-        "resource_types": {}
+        "count": 2,
+        "sessions": {"private_capture_2026_07_15": 2},
+        "status_codes": {"200": 2},
+        "resource_types": {"xhr": 2}
       },
       "environment_scope": {
-        "observed_target_origin": "not_observed",
+        "observed_target_origin": "redacted_internal_origin",
         "product_version": "unknown"
       },
       "official_docs": [
@@ -37392,26 +37686,48 @@
       ],
       "variants": [
         {
-          "id": "variant_documented_default",
-          "discriminant": "documented_default",
-          "observed_count": 0,
+          "id": "variant_default",
+          "discriminant": "default",
+          "observed_count": 2,
           "query_keys": [],
           "evidence": []
         }
       ],
       "request": {
         "query_parameters": [],
-        "body_parameters": [],
-        "json_body_fields": [],
-        "body_kinds": {},
-        "content_types": []
+        "body_parameters": [
+          {"name": "beginTime", "observed_types": ["integer", "string"], "occurrences": 2},
+          {"name": "endTime", "observed_types": ["integer", "string"], "occurrences": 2},
+          {"name": "timePeriod", "observed_types": ["integer", "string"], "occurrences": 2},
+          {"name": "bizSystemId", "observed_types": ["integer", "string"], "occurrences": 2},
+          {"name": "bizSystemName", "observed_types": ["string"], "occurrences": 2},
+          {"name": "errorLevel", "observed_types": ["string"], "occurrences": 2},
+          {"name": "exportColumns", "observed_types": ["array"], "occurrences": 2},
+          {"name": "filterParams", "observed_types": ["object"], "occurrences": 2}
+        ],
+        "json_body_fields": [
+          {"path": "beginTime", "types": ["integer", "string"]},
+          {"path": "endTime", "types": ["integer", "string"]},
+          {"path": "timePeriod", "types": ["integer", "string"]},
+          {"path": "bizSystemId", "types": ["integer", "string"]},
+          {"path": "bizSystemName", "types": ["string"]},
+          {"path": "errorLevel", "types": ["string"]},
+          {"path": "exportColumns", "types": ["array"]},
+          {"path": "filterParams", "types": ["object"]}
+        ],
+        "body_kinds": {"json": 2},
+        "content_types": ["application/json"]
       },
       "parameter_lineage": [],
       "response": {
-        "content_types": [],
-        "body_kinds": {},
-        "observed_fields": [],
-        "business_success_observed": false
+        "content_types": ["application/json"],
+        "body_kinds": {"json": 2},
+        "observed_fields": [
+          {"path": "status", "types": ["integer"]},
+          {"path": "data", "types": ["object"]},
+          {"path": "data.message", "types": ["string"]}
+        ],
+        "business_success_observed": true
       },
       "normalized_mapping": [],
       "pagination": {
@@ -37421,10 +37737,10 @@
         "observed_parameters": []
       },
       "filters": {
-        "observed_parameters": []
+        "observed_parameters": ["bizSystemId", "errorLevel", "filterParams", "exportColumns"]
       },
       "time_parameters": {
-        "observed_parameters": []
+        "observed_parameters": ["beginTime", "endTime", "timePeriod"]
       },
       "deep_link": {
         "status": "not_applicable"
@@ -37435,6 +37751,12 @@
           "document": "application-and-microservice-api.pdf",
           "page": 529,
           "section": "10.12       创建错误异常列表导出任务"
+        },
+        {
+          "source_type": "private_capture",
+          "capture": "2026-07-15",
+          "storage": "local_only",
+          "role": "two observed successful server-side export task creations; no replay authorized"
         }
       ]
     },

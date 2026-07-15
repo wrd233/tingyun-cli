@@ -6,7 +6,7 @@
 
 ## Advanced Read-only Source Surface
 
-`performance-error-series`, `performance-throughput-series`, alarm list/detail/metric, recent request response/error/throughput rankings, application instances, external calls, and trace exceptions. Each invocation is one fixed READ recipe and one immutable SOURCE Run. No automatic loops or fanout.
+`performance-error-series`, `performance-throughput-series`, alarm list/detail/metric, recent request response/error/throughput rankings, application instances, external calls, and node-scoped trace exceptions. Each invocation is one fixed READ recipe and one immutable SOURCE Run. Trace exceptions require an exact Call Tree `trace_tree_node` item; no node guessing, automatic loops, or fanout.
 
 ## Local-only Surface
 
@@ -18,4 +18,4 @@ Promotion matrix, Candidate exact matching, trace candidates/selection and sampl
 
 ## Research-only or rejected
 
-Component operations with uneven evidence, ambiguous `overview.max`, generic endpoint execution, unbounded scans, and all writes. None enters production safety.
+Trace search/list, independent stackTraces, alarm event-center queries, transaction error analysis/export, component operations with uneven evidence, ambiguous `overview.max`, generic endpoint execution, unbounded scans, and all writes. None enters production safety. Their Protocol verification does not imply Runtime promotion.

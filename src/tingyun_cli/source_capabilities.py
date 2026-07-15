@@ -53,7 +53,7 @@ def external_uri_request(biz_system_id: str, application_id: str, time_context: 
 
 def trace_exceptions_request(identity: Mapping[str, Any], time_context: Mapping[str, Any]) -> Dict[str, Any]:
     endpoint = time_context["endpoint"]
-    return _advanced({"endpoint_id": "ep_post_server_api_action_trace_detail_exceptions", "method": "POST", "path": "/server-api/action/trace/detail/exceptions", "body_kind": "form", "body": {"bizSystemId": identity.get("bizSystemId"), "applicationId": identity.get("applicationId"), "actionGuid": identity.get("actionGuid"), "traceId": identity.get("traceId"), "actionType": identity.get("actionType"), "timePeriod": str(endpoint["timePeriod"]), "endTime": endpoint["endTime"], "lang": "zh_CN"}})
+    return _advanced({"endpoint_id": "ep_post_server_api_action_trace_detail_exceptions", "method": "POST", "path": "/server-api/action/trace/detail/exceptions", "body_kind": "form", "body": {"treeId": identity.get("treeId"), "traceId": identity.get("traceId"), "bizSystemId": identity.get("bizSystemId"), "queryTimestamp": identity.get("queryTimestamp"), "timePeriod": str(endpoint["timePeriod"]), "endTime": endpoint["endTime"], "lang": "zh_CN"}})
 
 
 def _business_chart_request(endpoint_id: str, path: str, biz_system_id: str, time_context: Mapping[str, Any], *, advanced: bool = True) -> Dict[str, Any]:

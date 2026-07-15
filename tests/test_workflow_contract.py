@@ -4,6 +4,7 @@ from tingyun_cli.commands import (
     plan_collect,
     run_collect,
     run_investigate,
+    run_source_capability,
 )
 from tingyun_cli.config import Config
 from tingyun_cli.storage import RunStore
@@ -157,12 +158,14 @@ def test_investigate_trace_then_call_tree_are_separate_child_runs(tmp_path):
         source_run_id=collect_receipt["run_id"],
         source_item_ref="item-0001",
         action="investigate_trace",
-        transport=FakeTransport([{"status": 200, "data": {"actionGuid": "ag-1", "data": {"id": "trace-1"}}}]),
+        transport=FakeTransport([{"status": 200, "data": {"id": "trace-1", "actionGuid": "ag-1", "bizSystemId": "biz-1", "timestamp": 1000}}]),
         clock=FakeClock(),
     )
     trace_run = tmp_path / "runs" / trace_receipt["run_id"]
     trace = json.loads((trace_run / "evidence" / "trace.json").read_text())
     assert trace["data"]["items"][0]["available_actions"] == ["inspect_call_tree"]
+    assert trace["data"]["items"][0]["wire_identity"]["traceId"] == "trace-1"
+    assert trace["data"]["items"][0]["wire_identity"]["queryTimestamp"] == 1000
     assert json.loads((trace_run / "manifest.json").read_text())["source"] == {
         "run_id": collect_receipt["run_id"],
         "item_ref": "item-0001",
@@ -174,9 +177,38 @@ def test_investigate_trace_then_call_tree_are_separate_child_runs(tmp_path):
         source_run_id=trace_receipt["run_id"],
         source_item_ref="item-0001",
         action="inspect_call_tree",
-        transport=FakeTransport([{"status": 200, "data": {"nodes": [{"id": "root"}]}}]),
+        transport=FakeTransport([{
+            "status": 200,
+            "data": {
+                "treeNode": [{
+                    "id": "tree-root",
+                    "method": "root",
+                    "child": [{"id": "tree-error", "method": "call", "child": []}],
+                }],
+            },
+        }]),
         clock=FakeClock(),
     )
     call_tree_run = tmp_path / "runs" / call_tree_receipt["run_id"]
-    assert (call_tree_run / "evidence" / "call_tree.json").exists()
+    call_tree = json.loads((call_tree_run / "evidence" / "call_tree.json").read_text())
+    assert call_tree["execution"]["outcome"] == "SUCCESS"
+    assert [item["item_ref"] for item in call_tree["data"]["items"]] == ["trace-node-0001", "trace-node-0002"]
+    assert call_tree["data"]["items"][1]["wire_identity"] == {"bizSystemId": "biz-1", "traceId": "trace-1", "treeId": "tree-error", "queryTimestamp": 1000}
+    assert call_tree["data"]["items"][1]["source_run_id"] == call_tree_receipt["run_id"]
+    assert call_tree["data"]["items"][1]["source_refs"] == ["raw/response-0001.json"]
+    exception_transport = FakeTransport([{"status": 200, "data": [{"type": "ExampleException", "msg": "example failure", "stack": ["example.Frame.call(Frame.java:1)"]}]}])
+    exception_receipt = run_source_capability(
+        store=store,
+        config=_config(tmp_path),
+        capability="trace_exceptions",
+        source_run_id=call_tree_receipt["run_id"],
+        source_item_ref="trace-node-0002",
+        time_context_value="last_30m",
+        transport=exception_transport,
+        clock=FakeClock(),
+    )
+    assert exception_receipt["status"] == "SUCCESS"
+    assert exception_transport.requests[0]["body"]["treeId"] == "tree-error"
+    assert exception_transport.requests[0]["body"]["traceId"] == "trace-1"
+    assert exception_transport.requests[0]["body"]["queryTimestamp"] == 1000
     assert not (call_tree_run / "evidence" / "stack.json").exists()

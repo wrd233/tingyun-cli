@@ -1,9 +1,17 @@
 import json
 import os
+from pathlib import Path
 
 from tingyun_cli.commands import run_source_capability
 from tingyun_cli.config import Config
 from tingyun_cli.storage import RunStore
+
+
+FIXTURES = Path(__file__).parent / "fixtures" / "capture_2026_07_15"
+
+
+def _fixture(name):
+    return json.loads((FIXTURES / name).read_text())
 
 
 class FakeClock:
@@ -61,7 +69,7 @@ def test_source_capability_alarm_events_creates_immutable_run_without_source_ite
         "id": "alarm-1",
         "level": "CRITICAL",
         "target": {"value": "findRelation"},
-        "parentGroup": {"$biz_system_id": "1061", "$application_id": "1626"},
+        "parentGroup": [{"key": "$biz_system_id", "value": "1061"}, {"key": "$application_id", "value": "1626"}],
     }]}}])
 
     receipt = run_source_capability(
@@ -172,12 +180,7 @@ def test_source_capability_alarm_detail_uses_alarm_identity_and_normalizes_detai
         "kind": "alarm_event",
         "wire_identity": {"alarmEventId": "alarm-1", "bizSystemId": "1061", "applicationId": "1626"},
     })
-    transport = FakeTransport([{"status": 200, "data": {
-        "id": "alarm-1",
-        "target": {"value": "findRelation"},
-        "parentGroup": {"$biz_system_id": "1061", "$application_id": "1626"},
-        "alarmEventItems": [{"eventTraceId": "event-trace-1"}],
-    }}])
+    transport = FakeTransport([_fixture("alarm_detail.json")])
 
     receipt = run_source_capability(
         store=store,
@@ -197,9 +200,14 @@ def test_source_capability_alarm_detail_uses_alarm_identity_and_normalizes_detai
     assert transport.requests[0]["path"] == "/nalarm-api/event/trace"
     assert transport.requests[0]["body"]["id"] == "alarm-1"
     assert item["item_type"] == "alarm_detail"
-    assert item["scope"] == {"type": "alarm", "alarm_id": "alarm-1"}
-    assert item["identity"]["event_trace_ids"] == ["event-trace-1"]
-    assert item["identity"]["business_system_id"] == "1061"
+    assert item["scope"] == {"type": "alarm", "alarm_id": "alarm-fake-1"}
+    assert item["identity"]["event_trace_ids"] == ["event-fake-1"]
+    assert item["identity"]["business_system_id"] == "biz-fake-1"
+    assert item["identity"]["application_id"] == "app-fake-1"
+    assert item["identity"]["action_id"] == "action-fake-1"
+    assert item["wire_identity"]["targetType"] == "$$transaction"
+    assert item["wire_identity"]["metric"] == "response_time"
+    assert len(artifact["data"]["items"]) == 1
     assert item["source_run_id"] == receipt["run_id"]
 
 
@@ -219,7 +227,7 @@ def test_source_capability_alarm_metric_series_requires_detail_identity_and_pres
             "eventItems": [{"eventTraceId": "event-trace-1"}],
         },
     })
-    transport = FakeTransport([{"status": 200, "data": {"series": [{"time": "08:45", "value": 129000}]}}])
+    transport = FakeTransport([_fixture("alarm_metric_chart.json")])
 
     receipt = run_source_capability(
         store=store,
@@ -239,7 +247,7 @@ def test_source_capability_alarm_metric_series_requires_detail_identity_and_pres
     assert transport.requests[0]["body"]["metric"] == "response_time"
     assert artifact["kind"] == "alarm_metric_series"
     assert artifact["source"]["capability"] == "read_alarm_metric_series"
-    assert artifact["data"]["items"][0]["value"] == 129000
+    assert artifact["data"]["items"][0] == {"item_ref": "series-point-0001", "item_type": "metric_series_point", "source_run_id": receipt["run_id"], "source_refs": ["raw/response-0001.json"], "series_name": "current", "x": 1000, "y": 42}
     assert artifact["data"]["items"][0]["source_refs"] == ["raw/response-0001.json"]
 
 
@@ -335,20 +343,15 @@ def test_source_capability_trace_exceptions_normalizes_exception_items(tmp_path)
     store = RunStore(tmp_path)
     source_run_id = _write_item_run(store, {
         "item_ref": "item-0001",
-        "kind": "trace",
+        "kind": "trace_tree_node",
         "wire_identity": {
             "bizSystemId": "1061",
-            "applicationId": "1626",
-            "actionGuid": "ag-1",
+            "treeId": "tree-error-1",
             "traceId": "trace-129s",
-            "actionType": "WEB",
+            "queryTimestamp": 1000,
         },
     })
-    transport = FakeTransport([{"status": 200, "data": {"content": [{
-        "exceptionClass": "java.net.ConnectException",
-        "message": "Connection timed out",
-        "stack": ["Socket.connect", "HttpClient.execute"],
-    }]}}])
+    transport = FakeTransport([_fixture("trace_exceptions.json")])
 
     receipt = run_source_capability(
         store=store,
@@ -366,12 +369,27 @@ def test_source_capability_trace_exceptions_normalizes_exception_items(tmp_path)
     item = artifact["data"]["items"][0]
 
     assert transport.requests[0]["path"] == "/server-api/action/trace/detail/exceptions"
+    assert transport.requests[0]["body"]["treeId"] == "tree-error-1"
+    assert transport.requests[0]["body"]["queryTimestamp"] == 1000
+    assert "actionGuid" not in transport.requests[0]["body"]
     assert item["item_type"] == "trace_exception"
-    assert item["scope"] == {"type": "trace", "trace_id": "trace-129s"}
-    assert item["identity"]["exception_class"] == "java.net.ConnectException"
-    assert item["message"] == "Connection timed out"
-    assert item["stack"] == ["Socket.connect", "HttpClient.execute"]
+    assert item["scope"] == {"type": "trace_node", "trace_id": "trace-129s", "tree_id": "tree-error-1"}
+    assert item["identity"]["exception_class"] == "ExampleException"
+    assert item["message"] == "example failure"
+    assert item["stack"] == ["example.Service.call(Service.java:1)"]
     assert item["source_run_id"] == receipt["run_id"]
+
+
+def test_trace_exceptions_requires_exact_node_identity_before_http(tmp_path):
+    store = RunStore(tmp_path)
+    source_run_id = _write_item_run(store, {"item_ref": "trace-1", "kind": "trace", "wire_identity": {"bizSystemId": "biz-1", "traceId": "trace-1", "treeId": "tree-1", "queryTimestamp": 1000}})
+    transport = FakeTransport([])
+
+    receipt = run_source_capability(store=store, config=_config(tmp_path), capability="trace_exceptions", source_run_id=source_run_id, source_item_ref="trace-1", time_context_value="last_30m", transport=transport, clock=FakeClock())
+
+    assert receipt["status"] == "BLOCKED"
+    assert receipt["reason_code"] == "SOURCE_IDENTITY_INCOMPLETE"
+    assert transport.requests == []
 
 
 def test_response_ranking_alone_can_expose_main_verified_trace_action(tmp_path):

@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "data": {
+    "bizSystemId": "biz-fake-1",
+    "actionGuid": "action-guid-fake-1",
+    "timestamp": 1000,
+    "id": "trace-fake-1"
+  }
+}
